@@ -41,6 +41,11 @@ comprehensive-demo/   a second, bigger application on the same kernel:
                       interrupt-driven serial console (ON/OFF/STAT),
                       debounced button, Timer1 PWM breathing LED,
                       pool+mailbox IPC — see its README.md
+codegen/              Simulink / Embedded Coder integration: drop
+                      <model>_ert_rtw output here; README.md documents
+                      model configuration, data types, GPIO/PWM/ADC
+                      I/O binding, the rate→task→alarm mapping onto
+                      this scheduler, and the Makefile wiring
 ```
 
 The kernel directory never contains a `config.h`; each application
