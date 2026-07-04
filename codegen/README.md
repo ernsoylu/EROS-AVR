@@ -2,9 +2,10 @@
 
 This folder receives C code generated from Simulink models (Embedded
 Coder, `ert.tlc`) and documents the contract between a model and the
-EROS scheduler: how to configure the model, which data types to use,
-how root-level I/O binds to the GPIO/PWM/ADC drivers, and how the
-generated entry points are wired to OS tasks and alarms.
+**EROS** (Embedded Realtime Operating System) scheduler: how to
+configure the model, which data types to use, how root-level I/O binds
+to the GPIO/PWM/ADC drivers, and how the generated entry points are
+wired to OS tasks and alarms.
 
 ## Folder layout
 
@@ -322,6 +323,12 @@ SRCS       := main.c uart.c pwm.c config.c eros.c ctrl_glue.c $(MODEL_SRCS)
   watch the whole-image `avr-size` line instead — the model usually
   dominates flash. `--gc-sections` + `-ffunction-sections` (already in
   the flags) discard generated functions you never call.
+- **`eros.sh`**: the repo-root `./eros.sh -build` / `-flash` helper
+  builds and flashes the two *reference* firmwares (root demo and
+  comprehensive demo) with fixed source lists — it does **not** pick up
+  model code. Integrate models through the application Makefile as
+  above; extend `eros.sh` only if you want it to build a model firmware
+  too.
 
 ## 6. Checklist per integrated model
 

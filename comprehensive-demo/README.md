@@ -1,9 +1,10 @@
 # Comprehensive Demo — a full application on EROS
 
-A complete small firmware running on the **EROS OSEK BCC1 kernel**
-(compiled from `../kernel/` unchanged — only the static configuration
-in this folder differs from the root demo, demonstrating the OSEK
-"one kernel, per-application config" model).
+A complete small firmware running on the **EROS** (Embedded Realtime
+Operating System) **OSEK BCC1 kernel** (compiled from `../kernel/`
+unchanged — only the static configuration in this folder differs from
+the root demo, demonstrating the OSEK "one kernel, per-application
+config" model).
 
 | Feature | Task | Period |
 |---|---|---|
@@ -71,6 +72,15 @@ ramp too and prints `BTN -> RUN` / `BTN -> HOLD`.
   currently reads high; `PINB = (1<<PB5)` is the correct idiom.
 
 ## Build & flash
+
+From the repo root, the `eros.sh` helper builds and flashes this demo:
+
+```sh
+./eros.sh -build        # -> build/comprehensive-demo/demo.elf/.hex/.map
+./eros.sh -flash demo   # auto-detect the board + baud, then flash
+```
+
+Or drive this project's Makefile directly:
 
 ```sh
 make                                       # demo.elf/.hex/.map + size
