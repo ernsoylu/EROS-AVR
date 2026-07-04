@@ -1,8 +1,8 @@
 /**
  * @file    config.h
- * @brief   TinyOS static configuration for the comprehensive demo.
+ * @brief   EROS static configuration for the comprehensive demo.
  *
- * This application re-uses the TinyOS kernel from ../kernel unchanged -
+ * This application re-uses the EROS kernel from ../kernel unchanged -
  * only this configuration and the task set differ from the root demo,
  * demonstrating the OSEK model of one app-agnostic kernel +
  * per-application static config.
@@ -14,13 +14,13 @@
  *                   (ON / OFF / STAT), button events via mailbox
  *   TASK_RAMP    -> breathing LED on OC1A/PB1 (D9), Timer1 fast PWM
  *                   (Timer2 belongs to the OS tick!)
- *   Scheduling   -> TinyOS alarms, 10/50/100/500 ms periodic tasks
+ *   Scheduling   -> EROS alarms, 10/50/100/500 ms periodic tasks
  */
 
-#ifndef TINY_OS_CONFIG_H
-#define TINY_OS_CONFIG_H
+#ifndef EROS_CONFIG_H
+#define EROS_CONFIG_H
 
-#include "tiny_os_types.h"
+#include "eros_types.h"
 
 /* ------------------------------------------------------------------ */
 /* System counter                                                      */
@@ -133,4 +133,4 @@ OS_STATIC_ASSERT(OS_POOL_BLOCK_SIZE >= 1u,
 OS_STATIC_ASSERT((OS_ALIVE_REQUIRED_MASK & ~((1u << OS_NUM_TASKS) - 1u)) == 0u,
                  "aliveness mask references a non-existent task");
 
-#endif /* TINY_OS_CONFIG_H */
+#endif /* EROS_CONFIG_H */

@@ -1,6 +1,6 @@
 /**
- * @file    tiny_os.h
- * @brief   TinyOS public API - OSEK BCC1 services plus documented extensions.
+ * @file    eros.h
+ * @brief   EROS public API - OSEK BCC1 services plus documented extensions.
  *
  * Interrupt service routine categories (OSEK):
  *   Category 1: MUST NOT call any OS service. Use for latency-critical
@@ -16,10 +16,10 @@
  * it out keeps the worst-case stack depth statically boundable.
  */
 
-#ifndef TINY_OS_H
-#define TINY_OS_H
+#ifndef EROS_H
+#define EROS_H
 
-#include "tiny_os_types.h"
+#include "eros_types.h"
 #include "config.h"
 
 /* ------------------------------------------------------------------ */
@@ -65,7 +65,7 @@ void StartOS(void) __attribute__((noreturn));
  * reset recovers). Rationale: an uncontrolled error (e.g. stack canary
  * breach) must not be "rebooted around" silently. If automatic recovery
  * is preferred, remove wdt_disable() and the WDT will reset the board -
- * but read the ATmegaBOOT caveat in tiny_os.c first.
+ * but read the ATmegaBOOT caveat in eros.c first.
  */
 void ShutdownOS(StatusType error) __attribute__((noreturn));
 
@@ -133,7 +133,7 @@ StatusType GetTaskID(TaskRefType taskRef);
 StatusType GetTaskState(TaskType task, TaskStateRefType stateRef);
 
 /**
- * Return the active application mode. TinyOS supports the single
+ * Return the active application mode. EROS supports the single
  * OSDEFAULTAPPMODE (StartOS takes no mode - documented deviation).
  */
 AppModeType GetActiveApplicationMode(void);
@@ -170,7 +170,7 @@ StatusType SetRelAlarm(AlarmType alarm, TickType increment, TickType cycle);
  * wraps around, i.e. the next time the counter equals @p start - up to
  * 65536 ticks in the future. Internally this is realised with the same
  * wrap-safe comparison via an intermediate half-range waypoint
- * (see os_TickIsr in tiny_os.c), never with exact-match polling.
+ * (see os_TickIsr in eros.c), never with exact-match polling.
  *
  * @retval E_OK        armed
  * @retval E_OS_ID     invalid alarm ID
@@ -236,7 +236,7 @@ StatusType GetResource(ResourceType res);
 StatusType ReleaseResource(ResourceType res);
 
 /* ------------------------------------------------------------------ */
-/* TinyOS extensions (not part of OSEK BCC1 - documented additions)    */
+/* EROS extensions (not part of OSEK BCC1 - documented additions)    */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -280,4 +280,4 @@ StatusType OS_MailboxSend(OsPoolHandleType handle);
  */
 StatusType OS_MailboxReceive(OsPoolHandleType *handle);
 
-#endif /* TINY_OS_H */
+#endif /* EROS_H */

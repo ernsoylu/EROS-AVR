@@ -1,6 +1,6 @@
 /**
  * @file    main.c
- * @brief   TinyOS demonstration application (Arduino Nano / ATmega328P).
+ * @brief   EROS demonstration application (Arduino Nano / ATmega328P).
  *
  * Demonstrates every kernel feature:
  *
@@ -37,7 +37,7 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
-#include "tiny_os.h"
+#include "eros.h"
 
 /* ================================================================== */
 /* Polymorphic GPIO actuator - instances and vtables 100% in Flash     */

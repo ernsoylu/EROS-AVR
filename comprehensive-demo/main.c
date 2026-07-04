@@ -1,14 +1,14 @@
 /**
  * @file    main.c
  * @brief   Comprehensive demo - GPIO, serial console, PWM and IPC
- *          integrated on the TinyOS OSEK BCC1 kernel (../kernel).
+ *          integrated on the EROS OSEK BCC1 kernel (../kernel).
  *
  * Hardware (Arduino Nano):
  *   PB5 / D13 : heartbeat LED, toggled every 500 ms
  *   PD2 / D2  : push button to GND, internal pull-up
  *   PD0/PD1   : UART 9600 8N1 serial monitor
  *   PB1 / D9  : PWM "breathing" LED, Timer1 @ 1 kHz
- *   Scheduling: TinyOS alarms - 10/50/100/500 ms
+ *   Scheduling: EROS alarms - 10/50/100/500 ms
  *
  * Serial commands (type in any serial monitor, 9600 baud, CR or LF ends
  * a line): ON    resume the PWM ramp
@@ -28,7 +28,7 @@
 #include <avr/pgmspace.h>
 #include <string.h>
 
-#include "tiny_os.h"
+#include "eros.h"
 #include "uart.h"
 #include "pwm.h"
 
@@ -118,7 +118,7 @@ static void PrintStatus(void)
  */
 void Task_Startup(void)
 {
-    UART_Print_P(PSTR("\r\nTinyOS comprehensive demo\r\n"));
+    UART_Print_P(PSTR("\r\nEROS comprehensive demo\r\n"));
     UART_Print_P(PSTR("reset cause MCUSR=0x"));
     /* WDRF/BORF/EXTRF/PORF. Caveat: meaningful on old-bootloader
      * (ATmegaBOOT) boards and bare chips; Optiboot clears MCUSR before

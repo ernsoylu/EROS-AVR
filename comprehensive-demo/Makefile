@@ -1,6 +1,6 @@
 # =====================================================================
 # Comprehensive demo - GPIO, serial console, PWM and IPC integrated on
-# the TinyOS kernel (built from source out of ../kernel).
+# the EROS kernel (built from source out of ../kernel).
 #
 #   make            build demo.elf/.hex/.map + size report
 #   make flash      program the Nano (old bootloader: 57600 baud;
@@ -15,7 +15,7 @@ TARGET     := demo
 KERNEL_DIR := ../kernel
 VPATH      := $(KERNEL_DIR)
 
-SRCS       := main.c uart.c pwm.c config.c tiny_os.c
+SRCS       := main.c uart.c pwm.c config.c eros.c
 OBJS       := $(SRCS:.c=.o)
 DEPS       := $(SRCS:.c=.d)
 

@@ -1,11 +1,11 @@
 /**
  * @file    config.c
- * @brief   TinyOS static configuration tables (Flash) and pool arena (RAM).
+ * @brief   EROS static configuration tables (Flash) and pool arena (RAM).
  *
  * Everything in this file is created at compile time - no runtime object
- * creation exists anywhere in TinyOS. The const configuration tables are
+ * creation exists anywhere in EROS. The const configuration tables are
  * placed in PROGMEM (read-only Flash) and are linked by index to the small
- * volatile dynamic-state arrays that live in tiny_os.c.
+ * volatile dynamic-state arrays that live in eros.c.
  *
  * RAM accounting: the only RAM this file contributes is OS_poolArena[],
  * which is user-configured payload memory and therefore excluded from the
@@ -15,7 +15,7 @@
 
 #include <avr/pgmspace.h>
 
-#include "tiny_os.h"
+#include "eros.h"
 
 /* ------------------------------------------------------------------ */
 /* Task table - index == TaskType == priority == ready-mask bit.       */

@@ -2,7 +2,7 @@
  * @file    pwm.h
  * @brief   Timer1 fast-PWM driver.
  *
- * The ATmega328P could generate PWM on Timer0/1/2, but under TinyOS
+ * The ATmega328P could generate PWM on Timer0/1/2, but under EROS
  * Timer2 is the kernel tick and MUST NOT be touched by drivers, so this
  * driver is Timer1-only: mode 14 (fast PWM, ICR1 = TOP), prescaler /8,
  * 1 kHz on OC1A / PB1 (Arduino Nano pin D9).

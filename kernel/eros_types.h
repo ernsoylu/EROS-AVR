@@ -1,10 +1,11 @@
 /**
- * @file    tiny_os_types.h
- * @brief   TinyOS - OSEK BCC1 basic types, status codes, states and handles.
+ * @file    eros_types.h
+ * @brief   EROS - OSEK BCC1 basic types, status codes, states and handles.
  *
- * TinyOS is an ultra-minimalist, statically configured, non-preemptive
- * (cooperative, run-to-completion) OSEK BCC1 kernel for the ATmega328P
- * (Arduino Nano, 16 MHz, 2 KiB SRAM, 32 KiB Flash).
+ * EROS (Embedded Realtime Operating System) is an ultra-minimalist,
+ * statically configured, non-preemptive (cooperative, run-to-completion)
+ * OSEK BCC1 kernel for the ATmega328P (Arduino Nano, 16 MHz, 2 KiB SRAM,
+ * 32 KiB Flash).
  *
  * Design rules honoured throughout the code base:
  *   - Pure bare-metal C99. No Arduino framework, no dynamic allocation.
@@ -43,7 +44,7 @@
  *   D6  Rule 2.2/17.7: OS service return values are explicitly discarded
  *       with (void) casts where the demo intentionally ignores them.
  *   D7  Rule 8.9: kernel-internal state objects have file scope (static)
- *       in tiny_os.c although each is used by several functions and the ISR.
+ *       in eros.c although each is used by several functions and the ISR.
  *   D8  Rule 21.x: <avr/...> and <util/atomic.h> vendor headers are used;
  *       they are the only sanctioned hardware access path on this target.
  *
@@ -61,8 +62,8 @@
  *     (call-context violations resp. termination while holding resources).
  */
 
-#ifndef TINY_OS_TYPES_H
-#define TINY_OS_TYPES_H
+#ifndef EROS_TYPES_H
+#define EROS_TYPES_H
 
 #include <stdint.h>
 
@@ -142,7 +143,7 @@ typedef AlarmBaseType *AlarmBaseRefType;
 
 /* ------------------------------------------------------------------ */
 /* Static configuration record types (instantiated as const PROGMEM    */
-/* tables in config.c; mutable state lives in tiny_os.c, same index).  */
+/* tables in config.c; mutable state lives in eros.c, same index).  */
 /* ------------------------------------------------------------------ */
 
 /** Per-task ROM configuration. */
@@ -186,4 +187,4 @@ extern void StartupHook(void);
 extern void ErrorHook(StatusType error);
 extern void ShutdownHook(StatusType error);
 
-#endif /* TINY_OS_TYPES_H */
+#endif /* EROS_TYPES_H */

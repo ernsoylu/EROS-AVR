@@ -1,10 +1,11 @@
-# Embedding Simulink-generated code on TinyOS
+# Embedding Simulink-generated code on EROS
 
 This folder receives C code generated from Simulink models (Embedded
 Coder, `ert.tlc`) and documents the contract between a model and the
-TinyOS scheduler: how to configure the model, which data types to use,
-how root-level I/O binds to the GPIO/PWM/ADC drivers, and how the
-generated entry points are wired to OS tasks and alarms.
+**EROS** (Embedded Realtime Operating System) scheduler: how to
+configure the model, which data types to use, how root-level I/O binds
+to the GPIO/PWM/ADC drivers, and how the generated entry points are
+wired to OS tasks and alarms.
 
 ## Folder layout
 
@@ -28,11 +29,11 @@ configured as described below.
 ### Solver
 | Setting | Value | Why |
 |---|---|---|
-| Type / Solver | Fixed-step, `discrete (no continuous states)` | TinyOS drives steps from a 1 kHz tick; no ODE solver exists on target |
+| Type / Solver | Fixed-step, `discrete (no continuous states)` | EROS drives steps from a 1 kHz tick; no ODE solver exists on target |
 | Fixed-step size (base rate) | integer multiple of **0.001 s** | the OS tick is 1 ms (`OS_TICK_HZ = 1000`) |
 | Sample times | harmonic multiples of the base rate, each ≤ 32.767 s | cyclic alarms take periods 1..32767 ticks; harmonic rates (e.g. 0.01 / 0.05 / 0.1 / 0.5) keep release points aligned |
 | Tasking mode | `Treat each discrete rate as a separate task` (multitasking) for per-rate OS tasks, or single-tasking for small models (see §4) | |
-| Higher priority value indicates higher task priority | **checked** | matches TinyOS (TaskID == priority, higher = more urgent) |
+| Higher priority value indicates higher task priority | **checked** | matches EROS (TaskID == priority, higher = more urgent) |
 | Automatically handle rate transition for data | checked, `Ensure deterministic data transfer` | inserts the Rate Transition logic the scheduler mapping in §4 relies on |
 
 ### Hardware Implementation
@@ -58,7 +59,7 @@ word sizes match avr-gcc on the ATmega328P:
 |---|---|---|
 | System target file | `ert.tlc` | bare-metal footprint; `grt.tlc` drags in a main and timing engine |
 | Language | C (C99 constructs allowed) | project builds `-std=c99` |
-| Dynamic memory allocation | **off** | TinyOS forbids heap use (`malloc` is banned project-wide) |
+| Dynamic memory allocation | **off** | EROS forbids heap use (`malloc` is banned project-wide) |
 | Support: continuous time / non-finite numbers / complex | off | dead flash otherwise |
 | Support: absolute time | off if possible | otherwise see "Absolute time" in §4 |
 | Remove error status field | checked | no `rtmGetErrorStatus` plumbing needed |
@@ -167,11 +168,11 @@ interrupt.
 
 ### Rate → task → alarm mapping (multitasking models)
 
-One TinyOS task and one cyclic alarm per model rate, priorities
+One EROS task and one cyclic alarm per model rate, priorities
 **rate-monotonic** (faster rate = higher TaskID = higher priority):
 
 ```
-model rate      entry point    TinyOS task (prio)      alarm period
+model rate      entry point    EROS task (prio)      alarm period
 0.01 s (base)   ctrl_step0()   TASK_CTRL_10MS  (high)  10 ticks
 0.1  s          ctrl_step1()   TASK_CTRL_100MS (low)   100 ticks
 ```
@@ -212,7 +213,7 @@ void Task_Init(void)
 Embedded Coder's deterministic rate transitions assume: (a) the faster
 task executes before the slower one whenever both are released at the
 same instant, and (b) a step function is never interleaved with another
-step of the same model. Under TinyOS both hold, with one twist:
+step of the same model. Under EROS both hold, with one twist:
 
 - At a common release point the tick ISR readies both tasks in the same
   1 ms interrupt; the dispatcher then always picks the higher priority
@@ -240,7 +241,7 @@ misses are detected for free**, they are never silent.
 
 For models whose total step time is well under the base period, set
 tasking to single-tasking: Embedded Coder emits one `ctrl_step()` that
-internally sequences the sub-rates. Map it to **one** TinyOS task +
+internally sequences the sub-rates. Map it to **one** EROS task +
 one base-rate alarm and skip rate transitions entirely. Simpler, and
 the right default until profiling says otherwise.
 
@@ -282,8 +283,8 @@ root demo — only the relative paths change). The three touch points are
 -VPATH      := $(KERNEL_DIR)
 +VPATH      := $(KERNEL_DIR) ../codegen $(MODEL_DIR)
 
--SRCS       := main.c uart.c pwm.c config.c tiny_os.c
-+SRCS       := main.c uart.c pwm.c config.c tiny_os.c \
+-SRCS       := main.c uart.c pwm.c config.c eros.c
++SRCS       := main.c uart.c pwm.c config.c eros.c \
 +              ctrl_glue.c ctrl.c ctrl_data.c
 
  CFLAGS     := -Wall -Wextra -Werror -std=c99 -Os -flto \
@@ -296,7 +297,7 @@ root demo — only the relative paths change). The three touch points are
 That is all — the existing pattern rules do the rest:
 
 - **Sources**: `SRCS` lists bare file names; `make` finds them through
-  `VPATH` (exactly how `tiny_os.c` is already pulled from the kernel
+  `VPATH` (exactly how `eros.c` is already pulled from the kernel
   directory). Objects and `.d` files derive automatically from
   `OBJS := $(SRCS:.c=.o)`.
 - **Headers** are not listed anywhere: they are resolved through the
@@ -314,7 +315,7 @@ That is all — the existing pattern rules do the rest:
 
 ```make
 MODEL_SRCS := $(filter-out ert_main.c,$(notdir $(wildcard $(MODEL_DIR)/*.c)))
-SRCS       := main.c uart.c pwm.c config.c tiny_os.c ctrl_glue.c $(MODEL_SRCS)
+SRCS       := main.c uart.c pwm.c config.c eros.c ctrl_glue.c $(MODEL_SRCS)
 ```
 
 - **Budgets**: model + glue objects count as *application* code, so the
@@ -322,6 +323,12 @@ SRCS       := main.c uart.c pwm.c config.c tiny_os.c ctrl_glue.c $(MODEL_SRCS)
   watch the whole-image `avr-size` line instead — the model usually
   dominates flash. `--gc-sections` + `-ffunction-sections` (already in
   the flags) discard generated functions you never call.
+- **`eros.sh`**: the repo-root `./eros.sh -build` / `-flash` helper
+  builds and flashes the two *reference* firmwares (root demo and
+  comprehensive demo) with fixed source lists — it does **not** pick up
+  model code. Integrate models through the application Makefile as
+  above; extend `eros.sh` only if you want it to build a model firmware
+  too.
 
 ## 6. Checklist per integrated model
 
