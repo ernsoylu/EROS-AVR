@@ -1,182 +1,153 @@
-# ATmega328P — Bare-Metal Arduino Nano Programming
+# TinyOS — an OSEK BCC1 real-time kernel for the Arduino Nano
 
-A step-by-step learning path for bare-metal C on the Arduino Nano
-(ATmega328P, 16 MHz, 2 KiB SRAM, 32 KiB Flash) **without the Arduino
-framework** — just `avr-gcc`, `<avr/io.h>` and the datasheet. The
-examples build on each other: each folder introduces one concept, and
-the final demo integrates all of them on a small OSEK-style real-time
-kernel written in this repo.
+An ultra-minimalist, statically configured, **non-preemptive
+run-to-completion** real-time kernel implementing the OSEK/VDX BCC1
+(Basic Conformance Class 1) task model on the bare ATmega328P
+(Arduino Nano, 16 MHz, 2 KiB SRAM, 32 KiB Flash). Pure bare-metal C99 —
+no Arduino framework, no heap, no runtime object creation. Just
+`avr-gcc`, `<avr/io.h>` and the datasheet.
 
-| # | Folder | You learn | Peripherals |
-|---|--------|-----------|-------------|
-| 01 | [`01-Setup`](01-Setup/) | toolchain bring-up, GPIO output, delay-loop blink | GPIO |
-| 02 | [`02-GPIO`](02-GPIO/) | GPIO input, internal pull-ups, polling a button | GPIO |
-| 03 | [`03-SerialMonitor`](03-SerialMonitor/) | UART 8N1, polled TX/RX, a serial command parser | USART0 |
-| 04 | [`04-ManualScheduler`](04-ManualScheduler/) | timer tick interrupt, cooperative flag scheduler | Timer0 |
-| 05 | [`05-TinyOS`](05-TinyOS/TinyOS/) | **TinyOS**: an OSEK BCC1 real-time kernel (tasks, alarms, resources, IPC, watchdog) | Timer2, WDT |
-| 06 | [`06-PWM`](06-PWM/) | hardware PWM (fast PWM, TOP/duty math) | Timer0/1/2 |
-| 07 | [`07-ComprehensiveDemo`](07-ComprehensiveDemo/ComprehensiveDemo/) | **everything above, integrated on TinyOS** | all of them |
+Measured with avr-gcc 7.3 (`-Os`, non-LTO reference build — the shipped
+`-flto` image is smaller):
 
-Folders 01–04 and 06 are [PlatformIO](https://platformio.org/) projects
-(`pio run -t upload` inside the inner project folder). 05 and 07 use a
-plain `avr-gcc` Makefile (`make`, `make flash`) to show exactly what the
-toolchain does.
+| Budget | Limit | Measured |
+|---|---|---|
+| Kernel Flash (`tiny_os.o` + `config.o`) | ≤ 3072 B | **1945 B** |
+| Kernel static RAM (`tiny_os.o`) | ≤ 128 B | **35 B** |
+| Pool arena (user payload, reported separately) | — | 32 B |
+| Demo application RAM (`main.o`) | — | 6 B |
+| Stack + idle RAM (reported separately) | — | 1975 B |
+| Whole demo image (LTO + `--gc-sections`) | — | 2132 B Flash / 72 B RAM |
 
-> **Nano bootloader note:** most Nano clones ship the *old* ATmegaBOOT
-> bootloader → program at **57600 baud** (`make flash`, or
-> `upload_speed = 57600` in `platformio.ini`). Boards re-burned with
-> Optiboot use 115200 (`make flash BAUD=115200`).
+`make` builds, prints `avr-size` output and **fails the build** if a
+budget is exceeded (`make budget`).
 
----
+## Layout
 
-## 01-Setup — SetupAndBlink
-
-The "hello world" of bare metal: configure PB5 (Nano D13, on-board LED)
-as an output via the **data direction register**, then toggle it with an
-XOR on the **port register** and a busy-wait delay.
-
-```c
-DDRB  |= (1 << PB5);   // direction: output
-PORTB ^= (1 << PB5);   // toggle output latch
-_delay_ms(2000);       // burn 32 million cycles doing nothing
+```
+kernel/               app-agnostic kernel, reused by every application
+  tiny_os_types.h     types, StatusType set, config record types,
+                      MISRA deviation record D1..D8
+  tiny_os.h           public API + doc comments (semantics, error codes)
+  tiny_os.c           scheduler, tick ISR, alarms, resources, mailbox,
+                      pool, stack canary, watchdog, .init3 WDT fix
+config.h / config.c   the reference demo's static configuration ("OIL
+                      file"): tasks, priorities, alarms, resources, pool
+                      geometry, hooks, aliveness mask — PROGMEM tables
+main.c                reference demo application (tasks + hooks)
+Makefile              mandated warning-free flags, .map file, size/budget
+                      targets, avrdude flash target (old-bootloader baud)
+comprehensive-demo/   a second, bigger application on the same kernel:
+                      interrupt-driven serial console (ON/OFF/STAT),
+                      debounced button, Timer1 PWM breathing LED,
+                      pool+mailbox IPC — see its README.md
 ```
 
-What to take away:
+The kernel directory never contains a `config.h`; each application
+provides its own and compiles the kernel sources against it (`-I.`
+first) — the OSEK "one kernel, per-app static config" model. The
+`comprehensive-demo/` application reuses the kernel unchanged with a
+completely different task set.
 
-- Every GPIO pin is three registers: `DDRx` (direction), `PORTx`
-  (output latch / pull-up enable), `PINx` (input readback).
-- `_delay_ms()` needs `F_CPU` defined at compile time — it is a
-  calibrated busy loop, not a timer.
-- **Limitation to notice** (fixed in 04): while the CPU is inside
-  `_delay_ms()` it can do *nothing else*. Also note the comment in the
-  source says 500 ms while the code waits 2000 ms — trust code, not
-  comments.
+## Architecture in one page
 
-## 02-GPIO — button input
+- **Scheduling** — TaskID == static priority == bit position in an 8-bit
+  `ready_mask` (max 8 tasks, uniqueness enforced by `_Static_assert`).
+  Highest ready bit wins, found O(1) with a 16-entry PROGMEM nibble LUT
+  (AVR has no CLZ). Tasks run to completion; termination is the return
+  from the entry function. `Schedule()` is deliberately omitted
+  (documented deviation — it would only grow the shared stack). The
+  OSEK information services are provided too: `GetTaskID`,
+  `GetTaskState`, `GetAlarm`, `GetAlarmBase`,
+  `GetActiveApplicationMode` (unused ones cost nothing —
+  `--gc-sections` discards them).
+- **Tick & alarms** — Timer2 CTC, `TCCR2A=(1<<WGM21)`,
+  `TCCR2B=(1<<CS22)` (/64 — Timer2's prescaler table differs from
+  Timer0/1!), `OCR2A=249` → exactly 1 kHz. Alarms expire *inside* the
+  Category-2 tick ISR (≤ 1 tick activation error) using the wrap-safe
+  comparison `(int16_t)(now - expiry) >= 0`. `SetRelAlarm` rejects
+  offsets > 32767 with `E_OS_VALUE`; `SetAbsAlarm` with an
+  already-passed start waits for counter wraparound (implemented with a
+  half-range waypoint, still wrap-safe). Cyclic re-arm is anchored
+  (`expiry += cycle`) and therefore drift-free.
+- **Errors** — full mandated `StatusType` set; every service failure
+  runs through `ErrorHook` (re-entrancy guarded). A cyclic alarm firing
+  into a task that is still READY/RUNNING reports `E_OS_LIMIT` — free
+  deadline-miss detection. Per-task WCET budgets from `config.c` are
+  checked at termination (±1 tick).
+- **Resources (IPCP)** — non-blocking by construction; in a
+  non-preemptive kernel task-level ceilings have *no scheduling effect*
+  (documented), but a resource may raise its ceiling to ISR level:
+  holding it masks the tick interrupt (`OCIE2A`), the hardware latches
+  one pending compare match, and release restores it. LIFO order is
+  enforced; violations and termination-with-held-resources raise
+  `ErrorHook` (and the dispatcher force-releases).
+- **IPC** — single-slot mailbox transporting handles of an O(1)
+  fixed-block pool (free list threaded through the free blocks; 8-bit
+  allocation mask gives O(1) double-free detection and guards the
+  handle→pointer translation). Empty/full are normal polling outcomes
+  and do not raise `ErrorHook`.
+- **Idle & power** — `ready_mask == 0` → `SLEEP_MODE_IDLE` via the
+  canonical lost-wakeup-free sequence
+  `cli(); if (ready) {sei();} else {sleep_enable(); sei(); sleep_cpu();}`.
+- **Supervision** — stack canary (0xC5) painted at `StartOS()` from
+  `__heap_start` to just below the live stack pointer and verified at
+  every scheduling point → `ShutdownOS()` on breach. Watchdog
+  `WDTO_2S`: kicked only when *every* task in `OS_ALIVE_REQUIRED_MASK`
+  has completed since the previous kick; the aliveness mask is cleared
+  immediately after each kick.
+- **Old-bootloader safety** — `.init3` naked function clears `MCUSR`
+  and disables the WDT before `main()` (canonical avr-libc pattern), so
+  a WDT reset can't boot-loop ATmegaBOOT Nanos from the application
+  side. Caveat: a *genuine* WDT reset still re-enters the slow
+  bootloader with `WDRF` set — burn Optiboot for dependable WDT
+  recovery, or use WDT interrupt+reset mode. The captured reset cause
+  is exported as `os_resetCause`.
 
-Reads a push button on PD2 (Nano D2) using the **internal pull-up**
-(button wired to GND, no external resistor needed) and mirrors it to the
-LED:
+## Reference demo (`main.c`)
 
-```c
-DDRD  &= ~(1 << PD2);  // input
-PORTD |=  (1 << PD2);  // enable internal pull-up
-if ((PIND & (1 << PD2)) == 0) { /* pressed (active low) */ }
+| Task | Prio | Period | Pin | Purpose |
+|---|---|---|---|---|
+| `Task_Fast` | 4 (highest) | 10 ms | PD2/D2 | scope jitter channel; mailbox consumer |
+| `Task_Med` | 3 | 50 ms | PD3/D3 | scope channel; pool producer via mailbox under `RES_DEMO` |
+| `Task_Slow` | 2 | 500 ms | PD4/D4 | scope channel; `ChainTask(TASK_REPORT)` every 4th run |
+| `Task_Report` | 1 | chained | PD5/D5 | heartbeat (toggles every 2 s) |
+| `Task_Init` | 0 | once (autostart) | — | arms alarms; deliberate double `ActivateTask` → `E_OS_LIMIT` → `ErrorHook` |
+
+Put a scope on D2/D3/D4: you get 50/10/1 Hz square waves whose edge
+jitter is bounded by ≤ 1 tick activation error + the longest task WCET
+(≤ 1 ms steady-state). The on-board LED (PB5/D13) belongs exclusively
+to the hooks: it turns ON right after boot — that is the *intentional*
+double-activation error arriving in `ErrorHook` — and stays lit as a
+visible marker (solid ON from `ShutdownHook` would signal a terminal
+fault instead).
+
+Verified in simavr (10 simulated seconds): PD2/PD3/PD4 toggle exactly
+1000/200/20 times with the steady-state period accurate to the cycle,
+PD5 beats 6 times, PB5 toggles exactly once at boot, and a dedicated
+test confirmed `SetAbsAlarm` with a passed start value expires exactly
+one counter wraparound later (tick 65536 + start), including the
+start == now equality edge.
+
+## Build & flash
+
+```sh
+make                 # build + size + budget check (fails if over budget)
+make flash           # avrdude, old-bootloader Nano (57600 baud)
+make flash BAUD=115200 PORT=/dev/ttyACM0   # Optiboot boards
+
+cd comprehensive-demo && make              # the second application
 ```
 
-What to take away:
+Mandated flags (warning-free): `-Wall -Wextra -Werror -std=c99 -Os
+-flto -ffunction-sections -fdata-sections -Wl,--gc-sections
+-Wl,-Map=tinyos.map -mmcu=atmega328p -DF_CPU=16000000UL`.
 
-- Writing `PORTx` bits while the pin is an *input* controls the pull-up.
-- With a pull-up the switch is **active-low**: pressed reads 0.
-- The 10 ms poll acts as crude debouncing; 07 shows a real 8-sample
-  debounce filter.
+## Conformance notes
 
-## 03-SerialMonitor — polled UART
-
-A USART0 driver (9600 8N1) plus a small line parser: type `ON` or `OFF`
-in a serial monitor to switch the LED. Baud rate comes from
-`UBRR = F_CPU / (16 * baud) - 1`.
-
-What to take away:
-
-- TX: wait for `UDRE0` (data register empty), then write `UDR0`.
-  RX: wait for / test `RXC0`, then read `UDR0`.
-- 8N1 frame setup via `UCSZ01:UCSZ00`; enable with `RXEN0 | TXEN0`.
-- **Limitation to notice** (fixed in 07): this driver is *polled* —
-  `uart_print()` blocks ~1 ms per character at 9600 baud. Fine in a
-  super-loop; unacceptable inside a scheduler, where one 40-character
-  line would stall every task for 40 ms. 07 replaces it with an
-  interrupt-driven ring-buffer driver.
-
-## 04-ManualScheduler — tick interrupt + flag scheduler
-
-The first step from "delay loops" to "real-time": Timer0 in CTC mode
-fires an interrupt every 1 ms (`16 MHz / 64 / 250`), the ISR raises
-period flags (10/50/100 ms), and the main loop runs a task when its flag
-is set — a classic cooperative super-loop scheduler.
-
-What to take away:
-
-- CTC math: `OCR0A = 249` with prescaler 64 → exactly 1 kHz.
-- ISR/main-loop communication needs `volatile` flags.
-- Tasks must be short: a slow task delays every other task (this
-  motivates the WCET budgets that TinyOS enforces).
-- **Bug to notice** (intentional learning material): the tasks toggle
-  pins with `PIND |= (1 << PD2);`. That compiles to a
-  read-modify-write: it reads *all* PIND bits and writes back every bit
-  that reads 1 — toggling **every** high pin of the port, not just PD2.
-  It only appears to work because the demo toggles pins that are rarely
-  high simultaneously… on a port with several outputs it corrupts them.
-  The correct idiom is a plain store: `PIND = (1 << PD2);` (writing 1
-  to a `PINx` bit toggles that pin in hardware — atomic, single
-  instruction). 05 and 07 use the correct form.
-- **Limitations to notice** (fixed in 05): flags silently overwrite
-  (a missed 10 ms slot is lost with no error), there are no priorities,
-  no overrun detection, no power management — the loop spins even when
-  idle. That is exactly the feature list of TinyOS.
-
-## 05-TinyOS — an OSEK BCC1 real-time kernel
-
-The centrepiece of the repo: **TinyOS**, a statically configured,
-non-preemptive, run-to-completion OSEK BCC1 kernel in ~1.8 KiB of Flash
-and ~35 bytes of kernel RAM. Highlights:
-
-- O(1) priority scheduler (8-bit ready mask + PROGMEM nibble LUT)
-- OSEK task API (`ActivateTask`, `ChainTask`, implicit `TerminateTask`)
-  with BCC1 activation limits and `ErrorHook` diagnostics
-- Cyclic/one-shot alarms on a wrap-safe 1 kHz Timer2 tick,
-  `SetRelAlarm` / `SetAbsAlarm` / `CancelAlarm`
-- IPCP resources, single-slot mailbox, O(1) fixed-block memory pool
-- Stack canary, watchdog with per-task aliveness supervision,
-  `SLEEP_MODE_IDLE` when nothing is ready
-- Old-bootloader-safe early watchdog disable in `.init3`
-
-See [`05-TinyOS/TinyOS/README.md`](05-TinyOS/TinyOS/README.md) for the
-architecture guide, API reference, memory budgets and scope-measurement
-instructions. The kernel itself lives in
-[`05-TinyOS/TinyOS/kernel/`](05-TinyOS/TinyOS/kernel/) and is reused
-unchanged by example 07 — only the static configuration differs.
-
-## 06-PWM — hardware PWM
-
-A PWM driver for Timer1 (16-bit, fast PWM mode 14 with `ICR1` as TOP)
-and Timer2 (8-bit), plus the Timer0 tick scheduler from 04 ramping the
-duty cycle on OC1A (Nano D9).
-
-What to take away:
-
-- Fast PWM frequency: `f = F_CPU / (prescaler * (TOP + 1))`; duty is the
-  compare register / TOP ratio — the LED brightens as OCR1A rises.
-- Non-inverting output needs `COM1A1`; the pin must also be set as
-  output via `DDRx`.
-- Timer choice matters: each timer has *different* prescaler tables and
-  mode bits, and a timer used for PWM can't simultaneously be the system
-  tick. (In 07, Timer2 belongs to TinyOS, so PWM moves to Timer1.)
-- The 16-bit `OCR1A`/`ICR1` accesses go through a shared TEMP register —
-  keep them atomic once interrupts are involved.
-
-## 07-ComprehensiveDemo — everything, integrated on TinyOS
-
-All of the above running concurrently as **five TinyOS tasks**: heartbeat
-LED (01), debounced button (02), an interrupt-driven serial monitor with
-`ON`/`OFF`/`STAT` commands (03), TinyOS alarms replacing the manual flag
-scheduler (04), and a Timer1 PWM breathing LED (06) — plus TinyOS
-extras: button events travel to the command task through a memory-pool
-block posted into the mailbox, the watchdog supervises all periodic
-tasks, and the status line reports the reset cause and error counters.
-
-See [`07-ComprehensiveDemo/ComprehensiveDemo/README.md`](07-ComprehensiveDemo/ComprehensiveDemo/README.md)
-for wiring, the serial protocol and expected output.
-
----
-
-## Suggested path
-
-1. Blink an LED (01), then read a button (02) — registers and polling.
-2. Talk to a PC (03) — peripherals with status flags.
-3. Replace delays with a tick interrupt (04) — the cooperative pattern.
-4. Study TinyOS (05) — what a real kernel adds: priorities, alarms,
-   error handling, memory safety, supervision.
-5. Add PWM (06) — timers as waveform generators.
-6. Read 07 top to bottom — how drivers, tasks and the kernel compose
-   into a small but production-shaped firmware.
+MISRA C:2012 deviations are itemised as D1–D8 in `kernel/tiny_os_types.h`
+(hardware register access, avr-gcc attributes, the `TerminateTask()`
+return macro, PROGMEM function-pointer reads, wrap-safe signed tick
+arithmetic, …). OSEK deviations (no `Schedule()`, returning
+`ChainTask`, no `AppModeType` argument to `StartOS`, reduced
+`StatusType` set) are documented in the same header and in `tiny_os.h`.
