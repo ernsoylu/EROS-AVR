@@ -1,6 +1,6 @@
 /**
  * @file    config.h
- * @brief   TinyOS static application configuration (OSEK "OIL" equivalent).
+ * @brief   EROS static application configuration (OSEK "OIL" equivalent).
  *
  * Everything the kernel knows about the application is defined here and in
  * config.c - at compile time, as const PROGMEM tables. There is no runtime
@@ -12,16 +12,16 @@
  *   construction (enforced below with OS_STATIC_ASSERT).
  */
 
-#ifndef TINY_OS_CONFIG_H
-#define TINY_OS_CONFIG_H
+#ifndef EROS_CONFIG_H
+#define EROS_CONFIG_H
 
-#include "tiny_os_types.h"
+#include "eros_types.h"
 
 /* ------------------------------------------------------------------ */
 /* System counter                                                      */
 /* ------------------------------------------------------------------ */
 /** Tick frequency produced by Timer2 CTC (documentation constant - the
- *  Timer2 register values in tiny_os.c are derived for 16 MHz / 1 kHz). */
+ *  Timer2 register values in eros.c are derived for 16 MHz / 1 kHz). */
 #define OS_TICK_HZ            1000u
 #define OS_TICK_MS            1u
 
@@ -68,7 +68,7 @@ extern void Task_Fast(void);
 #define ALARM_SLOW            ((AlarmType)2u) /* 500 ms cyclic -> TASK_SLOW */
 
 /* ------------------------------------------------------------------ */
-/* Resources (IPCP - see OsResourceConfigType note in tiny_os_types.h) */
+/* Resources (IPCP - see OsResourceConfigType note in eros_types.h) */
 /* ------------------------------------------------------------------ */
 #define OS_NUM_RESOURCES      1u
 
@@ -133,4 +133,4 @@ OS_STATIC_ASSERT(OS_POOL_BLOCK_SIZE >= 1u,
 OS_STATIC_ASSERT((OS_ALIVE_REQUIRED_MASK & ~((1u << OS_NUM_TASKS) - 1u)) == 0u,
                  "aliveness mask references a non-existent task");
 
-#endif /* TINY_OS_CONFIG_H */
+#endif /* EROS_CONFIG_H */

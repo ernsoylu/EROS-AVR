@@ -1,6 +1,6 @@
 /**
  * @file    config.c
- * @brief   TinyOS static configuration tables for the comprehensive demo.
+ * @brief   EROS static configuration tables for the comprehensive demo.
  *
  * Same layout rules as the root demo: const config in PROGMEM, dynamic
  * state lives in the kernel, pool arena is the only RAM contributed here.
@@ -8,7 +8,7 @@
 
 #include <avr/pgmspace.h>
 
-#include "tiny_os.h"
+#include "eros.h"
 
 const OsTaskConfigType OS_taskConfig[OS_NUM_TASKS] PROGMEM =
 {

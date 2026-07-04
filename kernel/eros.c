@@ -1,14 +1,14 @@
 /**
- * @file    tiny_os.c
- * @brief   TinyOS kernel - scheduler, tick ISR, alarms, resources,
+ * @file    eros.c
+ * @brief   EROS kernel - scheduler, tick ISR, alarms, resources,
  *          mailbox, memory pool, stack canary and watchdog supervision.
  *
  * Target: ATmega328P @ 16 MHz (Arduino Nano).
  *
  * Memory budget (verified by the Makefile 'budget' target on a non-LTO
  * reference build; the shipped -flto image is smaller still):
- *   - Kernel Flash (tiny_os.o + config.o text+data) : <= 3072 bytes
- *   - Kernel static RAM (tiny_os.o data+bss)        : <= 128 bytes
+ *   - Kernel Flash (eros.o + config.o text+data) : <= 3072 bytes
+ *   - Kernel static RAM (eros.o data+bss)        : <= 128 bytes
  *   The stack and the user-configured pool arena (config.o bss) are
  *   excluded from the 128-byte budget and reported separately.
  *
@@ -23,7 +23,7 @@
  *     inside atomic sections.
  *
  * MISRA C:2012: see the project deviation record D1..D8 in
- * tiny_os_types.h. Hardware register accesses in this file fall under D1,
+ * eros_types.h. Hardware register accesses in this file fall under D1,
  * attribute/ISR usage under D2, PROGMEM reads under D4, and the wrap-safe
  * signed tick distance under D5.
  */
@@ -35,7 +35,7 @@
 #include <avr/pgmspace.h>
 #include <util/atomic.h>
 
-#include "tiny_os.h"
+#include "eros.h"
 
 /* ================================================================== */
 /* Early watchdog disable (.init3)                                     */
@@ -1003,7 +1003,7 @@ void ShutdownOS(StatusType error)
 #endif
 
     /* Halt for good: WDT off, deepest sleep, interrupts off. Only a
-     * hardware reset recovers - see tiny_os.h for the auto-recovery
+     * hardware reset recovers - see eros.h for the auto-recovery
      * alternative and the ATmegaBOOT boot-loop caveat above. */
     wdt_disable();
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);

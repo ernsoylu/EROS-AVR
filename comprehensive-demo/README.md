@@ -1,6 +1,6 @@
-# Comprehensive Demo — a full application on TinyOS
+# Comprehensive Demo — a full application on EROS
 
-A complete small firmware running on the **TinyOS OSEK BCC1 kernel**
+A complete small firmware running on the **EROS OSEK BCC1 kernel**
 (compiled from `../kernel/` unchanged — only the static configuration
 in this folder differs from the root demo, demonstrating the OSEK
 "one kernel, per-application config" model).
@@ -11,9 +11,9 @@ in this folder differs from the root demo, demonstrating the OSEK
 | debounced push button PD2/D2 (internal pull-up, 8-sample filter) | `Task_Button` | 10 ms |
 | serial monitor 9600 8N1, `ON`/`OFF`/`STAT` commands, interrupt-driven (ring buffers, Category-1 ISRs) | `Task_Cmd` | 50 ms |
 | Timer1 fast-PWM "breathing" LED on OC1A (PB1/D9), triangle ramp | `Task_Ramp` | 100 ms |
-| periodic scheduling via TinyOS alarms (real priorities, overrun detection) | all | — |
+| periodic scheduling via EROS alarms (real priorities, overrun detection) | all | — |
 
-TinyOS features on display: a button press allocates a **memory-pool
+EROS features on display: a button press allocates a **memory-pool
 block**, posts it through the **single-slot mailbox** to `Task_Cmd`
 (pool → mailbox → free life cycle), the multi-part status line is
 grouped under the `RES_UART` **resource**, the **watchdog** supervises
@@ -34,7 +34,7 @@ USB     : serial monitor, 9600 baud 8N1
 Boot banner:
 
 ```
-TinyOS comprehensive demo
+EROS comprehensive demo
 reset cause MCUSR=0x02  commands: ON | OFF | STAT
 ```
 

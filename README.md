@@ -1,7 +1,8 @@
-# TinyOS — an OSEK BCC1 real-time kernel for the Arduino Nano
+# EROS — Embedded Realtime Operating System for the Arduino Nano
 
-An ultra-minimalist, statically configured, **non-preemptive
-run-to-completion** real-time kernel implementing the OSEK/VDX BCC1
+**EROS** (Embedded Realtime Operating System) is an ultra-minimalist,
+statically configured, **non-preemptive run-to-completion** real-time
+kernel implementing the OSEK/VDX BCC1
 (Basic Conformance Class 1) task model on the bare ATmega328P
 (Arduino Nano, 16 MHz, 2 KiB SRAM, 32 KiB Flash). Pure bare-metal C99 —
 no Arduino framework, no heap, no runtime object creation. Just
@@ -12,8 +13,8 @@ Measured with avr-gcc 7.3 (`-Os`, non-LTO reference build — the shipped
 
 | Budget | Limit | Measured |
 |---|---|---|
-| Kernel Flash (`tiny_os.o` + `config.o`) | ≤ 3072 B | **1945 B** |
-| Kernel static RAM (`tiny_os.o`) | ≤ 128 B | **35 B** |
+| Kernel Flash (`eros.o` + `config.o`) | ≤ 3072 B | **1945 B** |
+| Kernel static RAM (`eros.o`) | ≤ 128 B | **35 B** |
 | Pool arena (user payload, reported separately) | — | 32 B |
 | Demo application RAM (`main.o`) | — | 6 B |
 | Stack + idle RAM (reported separately) | — | 1975 B |
@@ -26,10 +27,10 @@ budget is exceeded (`make budget`).
 
 ```
 kernel/               app-agnostic kernel, reused by every application
-  tiny_os_types.h     types, StatusType set, config record types,
+  eros_types.h     types, StatusType set, config record types,
                       MISRA deviation record D1..D8
-  tiny_os.h           public API + doc comments (semantics, error codes)
-  tiny_os.c           scheduler, tick ISR, alarms, resources, mailbox,
+  eros.h           public API + doc comments (semantics, error codes)
+  eros.c           scheduler, tick ISR, alarms, resources, mailbox,
                       pool, stack canary, watchdog, .init3 WDT fix
 config.h / config.c   the reference demo's static configuration ("OIL
                       file"): tasks, priorities, alarms, resources, pool
@@ -146,13 +147,13 @@ cd comprehensive-demo && make              # the second application
 
 Mandated flags (warning-free): `-Wall -Wextra -Werror -std=c99 -Os
 -flto -ffunction-sections -fdata-sections -Wl,--gc-sections
--Wl,-Map=tinyos.map -mmcu=atmega328p -DF_CPU=16000000UL`.
+-Wl,-Map=eros.map -mmcu=atmega328p -DF_CPU=16000000UL`.
 
 ## Conformance notes
 
-MISRA C:2012 deviations are itemised as D1–D8 in `kernel/tiny_os_types.h`
+MISRA C:2012 deviations are itemised as D1–D8 in `kernel/eros_types.h`
 (hardware register access, avr-gcc attributes, the `TerminateTask()`
 return macro, PROGMEM function-pointer reads, wrap-safe signed tick
 arithmetic, …). OSEK deviations (no `Schedule()`, returning
 `ChainTask`, no `AppModeType` argument to `StartOS`, reduced
-`StatusType` set) are documented in the same header and in `tiny_os.h`.
+`StatusType` set) are documented in the same header and in `eros.h`.

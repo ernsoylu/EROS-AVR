@@ -1,13 +1,13 @@
 # =====================================================================
-# TinyOS - OSEK BCC1 kernel for Arduino Nano (ATmega328P @ 16 MHz)
+# EROS - OSEK BCC1 kernel for Arduino Nano (ATmega328P @ 16 MHz)
 #
 # Targets:
-#   make / make all   build tinyos.elf + tinyos.hex + tinyos.map,
+#   make / make all   build eros.elf + eros.hex + eros.map,
 #                     print section sizes, enforce the memory budgets
 #   make size         avr-size report for the final (LTO) image
 #   make budget       kernel budget check on a non-LTO reference build:
-#                       kernel Flash (tiny_os.o + config.o) <= 3072 B
-#                       kernel static RAM (tiny_os.o)       <= 128 B
+#                       kernel Flash (eros.o + config.o) <= 3072 B
+#                       kernel static RAM (eros.o)       <= 128 B
 #                     Pool arena and stack are excluded from the kernel
 #                     RAM budget and reported separately.
 #   make flash        program via the Nano bootloader
@@ -21,7 +21,7 @@
 
 MCU     := atmega328p
 F_CPU   := 16000000UL
-TARGET  := tinyos
+TARGET  := eros
 
 # Kernel sources live in kernel/ (app-agnostic); this directory holds the
 # application: static configuration (config.h/config.c) and the demo tasks
@@ -29,7 +29,7 @@ TARGET  := tinyos
 # directory via -I. - the classic OSEK kernel + per-app OIL layout.
 VPATH   := kernel
 
-SRCS    := main.c tiny_os.c config.c
+SRCS    := main.c eros.c config.c
 OBJS    := $(SRCS:.c=.o)
 DEPS    := $(SRCS:.c=.d)
 
@@ -86,17 +86,17 @@ $(BUDGET_DIR)/%.o: %.c | $(BUDGET_DIR)
 # 2 KiB SRAM total; whatever the statics do not use is stack headroom.
 SRAM_TOTAL := 2048
 
-budget: $(BUDGET_DIR)/tiny_os.o $(BUDGET_DIR)/config.o $(BUDGET_DIR)/main.o
+budget: $(BUDGET_DIR)/eros.o $(BUDGET_DIR)/config.o $(BUDGET_DIR)/main.o
 	@echo "---- kernel budget check (non-LTO reference build) ----------"
-	@$(SIZE) -B $(BUDGET_DIR)/tiny_os.o $(BUDGET_DIR)/config.o \
+	@$(SIZE) -B $(BUDGET_DIR)/eros.o $(BUDGET_DIR)/config.o \
 	         $(BUDGET_DIR)/main.o | awk ' \
 	  NR==2 { kflash += $$1 + $$2; kram   = $$2 + $$3 } \
 	  NR==3 { kflash += $$1 + $$2; arena  = $$2 + $$3 } \
 	  NR==4 { appram  = $$2 + $$3 } \
 	  END { \
-	    printf("kernel Flash (tiny_os.o+config.o) : %4d / %d bytes\n", \
+	    printf("kernel Flash (eros.o+config.o) : %4d / %d bytes\n", \
 	           kflash, $(FLASH_BUDGET)); \
-	    printf("kernel static RAM (tiny_os.o)     : %4d / %d bytes\n", \
+	    printf("kernel static RAM (eros.o)     : %4d / %d bytes\n", \
 	           kram, $(RAM_BUDGET)); \
 	    printf("pool arena (config.o, excluded)   : %4d bytes\n", arena); \
 	    printf("application RAM (main.o)          : %4d bytes\n", appram); \
