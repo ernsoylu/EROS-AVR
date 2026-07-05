@@ -30,8 +30,11 @@ DRIVERS = {
                       ("channel",), "ADC_Init();"),
     "dio": DriverSpec("dio", ("in", "out"), "uint8_t", 1, "",
                       ("port", "bit"), "", boolean=True),
-    "pwm": DriverSpec("pwm", ("out",), "uint8_t", 255, "pwm.h",
-                      ("channel",), "PWM_Init();"),
+    # Timer1 PWM on the fixed OC1A pin; duty is permille (0..1000), so uint16 -
+    # no channel/pin binding param needed (unlike adc/dio). Matches pwm.h's
+    # PWM_SetDutyPermille(uint16_t).
+    "pwm": DriverSpec("pwm", ("out",), "uint16_t", 1000, "pwm.h",
+                      (), "PWM_Init();"),
 }
 
 

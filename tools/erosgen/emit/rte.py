@@ -98,6 +98,11 @@ def _adapter(port):
                 f"        RTE_CFG_{tag}_PORT &= (uint8_t)~(1u << RTE_CFG_{tag}_BIT);",
                 "    }",
                 "}"]
+    if port.driver == "pwm" and port.direction == "out":
+        return [f"static void Rte_Write_{stem}(uint16_t permille)",
+                "{",
+                "    PWM_SetDutyPermille(permille);",
+                "}"]
     return [f'#error "RTE emit: driver \'{port.driver}\' '
             f'({port.direction}) not supported yet"']
 

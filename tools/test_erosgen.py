@@ -334,6 +334,28 @@ def test_unknown_mcu_is_reported():
     assert "UNKNOWN_MCU" in codes
 
 
+def test_pwm_rte_adapter():
+    from erosgen.bind import DRIVERS
+    from erosgen.emit.rte import emit_rte_c, emit_rte_cfg_h
+    from erosgen.models import BoundPort, ResolvedModel
+    from erosgen.parse import Signal
+    # the pwm spec matches the real Timer1 driver: permille 0..1000, uint16, no
+    # channel/pin param (fixed OC1A).
+    assert DRIVERS["pwm"].vmax == 1000
+    assert DRIVERS["pwm"].value_ctype == "uint16_t"
+    assert DRIVERS["pwm"].required == ()
+    # a uint16 output bound to pwm emits a PWM_SetDutyPermille adapter, no #error
+    port = BoundPort(Signal("OUT_Duty_Pm", "uint16_T", "out"),
+                     "out", "pwm", {}, "Duty_Pm")
+    rm = ResolvedModel("motor", "motor_initialize", "motor_Runnable", 20,
+                       [], [port], None)
+    c = emit_rte_c(rm, "app.yaml", integrated=True)
+    assert "#error" not in c
+    assert "PWM_SetDutyPermille(permille)" in c
+    assert '#include "pwm.h"' in c and "PWM_Init();" in c
+    assert "RTE_CFG_DUTY_PM_SIGNAL" in emit_rte_cfg_h(rm, "app.yaml")
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]
