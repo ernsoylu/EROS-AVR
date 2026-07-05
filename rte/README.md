@@ -93,6 +93,25 @@ models:
     # (ImportFromFile). appKnbSwt exports them, so none here.
 ```
 
+**Optional input scaling (`slope` / `offset`).** A port carries the **raw**
+driver value by default — scaling normally lives in Simulink (as `IN_KnbVal_Z`
+does). A non-boolean **input** port may instead opt into a generated linear
+calibration by declaring `slope` (and an optional `offset`, default 0):
+
+```yaml
+      in:
+        - signal: IN_Volt_mV
+          driver: adc
+          channel: 0
+          slope: 4.887586       # port = raw*slope + offset (0..1023 -> 0..5000 mV)
+```
+
+`erosgen` emits `RTE_CFG_<PORT>_SLOPE` / `_OFFSET` #defines in `Rte_Cfg.h` and a
+`Rte_Read_*` adapter that returns the signal's C type, computing the conversion
+in integer math (`int32_t`) when both constants are ints and single-precision
+`float` otherwise. Output-port and boolean (`dio`) scaling are rejected up front
+(`SCALING_UNSUPPORTED`) — invert on the actuator side in Simulink for now.
+
 From this one block, `erosgen` generates `Rte.h` / `Rte_Cfg.h` / `Rte.c` (the
 per-port `Rte_Read_*/Rte_Write_*` adapters, `Rte_Init`, and a `Task_<model>`
 body that runs the runnable and `TerminateTask()`s), and wires the model as

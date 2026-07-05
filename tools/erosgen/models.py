@@ -21,10 +21,16 @@ class BoundPort:
     driver: str
     params: dict
     stem: str             # signal name without IN_/OUT_ (e.g. "KnbVal_Z")
+    slope: object = None  # opt-in calibration: port = raw*slope + offset
+    offset: object = None  # None slope => pass the raw driver value through
 
     @property
     def tag(self):        # #define tag, e.g. "KNBVAL_Z"
         return self.stem.upper()
+
+    @property
+    def scaled(self):
+        return self.slope is not None
 
 
 @dataclass
@@ -43,6 +49,27 @@ def _stem(signal_name):
         if signal_name.startswith(p):
             return signal_name[len(p):]
     return signal_name
+
+
+def _parse_scaling(pd, direction, spec, where, sink):
+    """Read a port's opt-in slope/offset calibration. Returns (slope, offset),
+    or (None, None) when the port declares none. v1 supports it on non-boolean
+    *input* ports only (the sensor characteristic port = raw*slope + offset);
+    anything else is reported and dropped so output/dio ports stay raw."""
+    if "slope" not in pd and "offset" not in pd:
+        return None, None
+    slope, offset = pd.get("slope", 1), pd.get("offset", 0)
+    for key, v in (("slope", slope), ("offset", offset)):
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            sink.error("SCALING_NOT_NUMBER",
+                       f"{where}: {key} must be a number", where)
+            return None, None
+    if direction != "in" or (spec is not None and spec.boolean):
+        sink.error("SCALING_UNSUPPORTED",
+                   f"{where}: slope/offset scaling is only supported on "
+                   "non-boolean input ports for now", where)
+        return None, None
+    return slope, offset
 
 
 def resolve_model(mspec, app_dir, sink):
@@ -107,8 +134,9 @@ def resolve_model(mspec, app_dir, sink):
             params = {k: pd[k] for k in PORT_PARAM_KEYS if k in pd}
             spec = check_binding(sig, direction, driver, params, sink, pw)
             if spec is not None:
+                slope, offset = _parse_scaling(pd, direction, spec, pw, sink)
                 bucket.append(BoundPort(sig, direction, driver, params,
-                                        _stem(signame)))
+                                        _stem(signame), slope, offset))
     return ResolvedModel(name, init_fn, runnable_fn, mspec.get("rate_ms"),
                          inputs, outputs, iface)
 

@@ -356,6 +356,71 @@ def test_pwm_rte_adapter():
     assert "RTE_CFG_DUTY_PM_SIGNAL" in emit_rte_cfg_h(rm, "app.yaml")
 
 
+def _scaled_adc_model(slope, offset):
+    from erosgen.models import BoundPort, ResolvedModel
+    from erosgen.parse import Signal
+    port = BoundPort(Signal("IN_KnbVal_Z", "uint16_T", "in"), "in", "adc",
+                     {"channel": 0}, "KnbVal_Z", slope, offset)
+    return ResolvedModel("knb", "knb_initialize", "knb_Runnable", 10,
+                         [port], [], None)
+
+
+def test_rte_scaling_integer_math():
+    from erosgen.emit.rte import emit_rte_c, emit_rte_cfg_h
+    rm = _scaled_adc_model(5, -3)          # both ints -> integer (int32_t) path
+    cfg, c = emit_rte_cfg_h(rm, "app.yaml"), emit_rte_c(rm, "app.yaml", True)
+    # slope/offset become auditable declarative #defines, not inline literals
+    assert "RTE_CFG_KNBVAL_Z_SLOPE" in cfg and "RTE_CFG_KNBVAL_Z_OFFSET" in cfg
+    assert "5" in cfg and "-3" in cfg
+    # the read adapter returns the signal's C type and calibrates via int32_t
+    assert "static uint16_t Rte_Read_KnbVal_Z(void)" in c
+    assert "uint16_t raw = ADC_Read(RTE_CFG_KNBVAL_Z_ADC_CH);" in c
+    assert ("(int32_t)raw * RTE_CFG_KNBVAL_Z_SLOPE + RTE_CFG_KNBVAL_Z_OFFSET"
+            in c)
+
+
+def test_rte_scaling_float_math():
+    from erosgen.emit.rte import emit_rte_c, emit_rte_cfg_h
+    rm = _scaled_adc_model(0.1, 1.5)       # a float -> single-precision path
+    cfg, c = emit_rte_cfg_h(rm, "app.yaml"), emit_rte_c(rm, "app.yaml", True)
+    assert "0.1f" in cfg and "1.5f" in cfg   # real32 literals, not doubles
+    assert "(float)raw * RTE_CFG_KNBVAL_Z_SLOPE + RTE_CFG_KNBVAL_Z_OFFSET" in c
+
+
+def _resolve_ports(ports):
+    """resolve_models over the real appKnbSwt ERT dir with the given ports:
+    block. Returns (resolved_models, {diagnostic codes})."""
+    from erosgen import Diagnostics
+    from erosgen.models import resolve_models
+    doc = {"models": [{"name": "appKnbSwt", "rate_ms": 10,
+                       "runnable": "appKnbSwt_Runnable",
+                       "codegen_dir": str(REPO / "codegen" / "appKnbSwt_ert_rtw"),
+                       "ports": ports}]}
+    sink = Diagnostics(strict=False)
+    rms = resolve_models(doc, Path("."), sink)
+    return rms, {d.code for d in sink.items}
+
+
+def test_scaling_end_to_end_input():
+    rms, codes = _resolve_ports({"in": [{"signal": "IN_KnbVal_Z", "driver": "adc",
+                                         "channel": 0, "slope": 2, "offset": 1}]})
+    assert "SCALING_UNSUPPORTED" not in codes and "SCALING_NOT_NUMBER" not in codes
+    assert rms[0].inputs[0].scaled
+
+
+def test_scaling_rejected_on_output():
+    # OUT_Led1_B is a dio output: both non-input and boolean -> rejected loudly.
+    _, codes = _resolve_ports({"out": [{"signal": "OUT_Led1_B", "driver": "dio",
+                                        "port": "B", "bit": 5, "slope": 2}]})
+    assert "SCALING_UNSUPPORTED" in codes
+
+
+def test_scaling_rejects_non_number():
+    _, codes = _resolve_ports({"in": [{"signal": "IN_KnbVal_Z", "driver": "adc",
+                                       "channel": 0, "slope": "fast"}]})
+    assert "SCALING_NOT_NUMBER" in codes
+
+
 def test_multi_model_rejected():
     # Two models is unsupported (a single RTE): System must reject it up front,
     # not silently emit one model's Rte.* over the other's. This locks in the

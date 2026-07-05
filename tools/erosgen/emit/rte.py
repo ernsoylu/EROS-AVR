@@ -7,6 +7,7 @@ driver this emitter doesn't handle yet produce a visible #error.
 """
 
 from ..constants import GENERATED_BANNER
+from ..parse.ert import RTW_TYPES
 
 _DRIVER_HEADER = {"adc": "adc.h", "pwm": "pwm.h"}  # dio uses raw avr/io.h
 
@@ -15,6 +16,18 @@ _DEF_PAD = 26  # macro-name column so every #define value aligns
 
 def _def(name, value):
     return f"#define {name:<{_DEF_PAD}} {value}"
+
+
+def _c_num(v):
+    """A slope/offset as a C literal: an int stays an int, a float gets a
+    real32 'f' suffix so the arithmetic stays single-precision on the AVR."""
+    return str(v) if isinstance(v, int) else f"{v:.7g}f"
+
+
+def _signal_ctype(signal, fallback):
+    """The C stdint type for a signal's rtw type (e.g. uint16_T -> uint16_t)."""
+    info = RTW_TYPES.get(signal.ctype)
+    return info[0] if info else fallback
 
 
 def _cfg_defines(port):
@@ -31,6 +44,9 @@ def _cfg_defines(port):
         else:
             L.append(_def(f"RTE_CFG_{tag}_PIN", f"PIN{prt}"))
         L.append(_def(f"RTE_CFG_{tag}_BIT", f"{bit}u"))
+    if port.scaled:
+        L.append(_def(f"RTE_CFG_{tag}_SLOPE", _c_num(port.slope)))
+        L.append(_def(f"RTE_CFG_{tag}_OFFSET", _c_num(port.offset)))
     return L
 
 
@@ -55,8 +71,9 @@ def emit_rte_cfg_h(rm, src_name):
     if rm.inputs:
         L.append("/* ---- Input ports: BSW sensor -> ASW port ------------------------ */")
         for port in rm.inputs:
+            note = " (scaled: port = raw*slope + offset)" if port.scaled else ""
             L.append(f"/* {port.signal.name} ({port.signal.ctype}) <- "
-                     f"{port.driver} */")
+                     f"{port.driver}{note} */")
             L.extend(_cfg_defines(port))
         L.append("")
     if rm.outputs:
@@ -77,6 +94,19 @@ def _adapter(port):
     """The Rte_Read_*/Rte_Write_* adapter definition for one bound port."""
     tag, stem = port.tag, port.stem
     if port.driver == "adc":
+        if port.scaled:
+            # opt-in linear calibration: port = raw*slope + offset. Integer
+            # math (via int32_t) when both are ints, single-precision float
+            # otherwise; either way the constants live in Rte_Cfg.h.
+            cty = _signal_ctype(port.signal, "uint16_t")
+            wide = ("int32_t" if isinstance(port.slope, int)
+                    and isinstance(port.offset, int) else "float")
+            return [f"static {cty} Rte_Read_{stem}(void)",
+                    "{",
+                    f"    uint16_t raw = ADC_Read(RTE_CFG_{tag}_ADC_CH);",
+                    f"    return ({cty})(({wide})raw * RTE_CFG_{tag}_SLOPE"
+                    f" + RTE_CFG_{tag}_OFFSET);",
+                    "}"]
         return [f"static uint16_t Rte_Read_{stem}(void)",
                 "{",
                 f"    return ADC_Read(RTE_CFG_{tag}_ADC_CH);",
