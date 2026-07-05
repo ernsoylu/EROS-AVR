@@ -265,9 +265,9 @@ int main(int argc, char **argv)
 
     elf_firmware_t fw;
     memset(&fw, 0, sizeof(fw));
-    if (elf_read_firmware(fname, &fw) != 0)
+    if (elf_read_firmware(o.fname, &fw) != 0)
     {
-        fprintf(stderr, "runtest: cannot read ELF '%s'\n", fname);
+        fprintf(stderr, "runtest: cannot read ELF '%s'\n", o.fname);
         return 3;
     }
 
