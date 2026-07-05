@@ -89,6 +89,39 @@ class ProjectModel:
         return erosgen.collect_diagnostics(self.plain,
                                            self.path or Path("app.yaml"))
 
+    # ---- editing --------------------------------------------------------
+    def available_mcus(self):
+        """MCU profiles the engine can target (mcu/*.yaml stems)."""
+        mcu_dir = Path(erosgen.__file__).resolve().parent / "mcu"
+        return sorted(p.stem for p in mcu_dir.glob("*.yaml"))
+
+    def set_mcu(self, name):
+        """Edit the target MCU in the live document (diagnostics update next
+        time they're read - that's the live-editing loop)."""
+        self.doc.setdefault("system", {})["mcu"] = name
+
+    def budget(self):
+        """Pre-flash static-RAM plan (bytes) - what the tool's report prints, so
+        'too much RAM' is visible before building. None if the config is invalid.
+        NOTE: true flash/RAM needs a compile (avr-size); this is the deliberate,
+        over-counting non-LTO estimate."""
+        try:
+            s = erosgen.System(self.plain, self.path or Path("app.yaml"))
+        except erosgen.ConfigError:
+            return None
+        uart = s.peripherals.get("uart")
+        rings = 0
+        if uart is not None:
+            uart = uart or {}
+            rings = int(uart.get("tx_ring", 128)) + int(uart.get("rx_ring", 64))
+        b = s.budget or {}
+        return {
+            "kernel": 35,                                  # matches report()
+            "arena": s.pool_block * s.pool_blocks,
+            "rings": rings,
+            "sram_total": int(b.get("sram_total", 2048)),
+        }
+
     def generate(self):
         """Save, then run the generator. Returns (ok, report_text)."""
         if self.path is None:

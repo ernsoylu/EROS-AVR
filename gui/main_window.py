@@ -7,10 +7,10 @@ every fact comes from the ProjectModel / the engine.
 """
 from PySide6.QtCore import Qt, QProcess
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QFileDialog, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QSplitter, QTableWidget,
-                               QTableWidgetItem, QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QFileDialog, QLabel, QMainWindow,
+                               QMessageBox, QPlainTextEdit, QSplitter,
+                               QTableWidget, QTableWidgetItem, QTreeWidget,
+                               QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .project import ProjectModel
 
@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
         self.proc = None
         self._build_ui()
         self._build_menu()
+        self._build_toolbar()
         self.refresh()
 
     # ---- construction ---------------------------------------------------
@@ -46,6 +47,7 @@ class MainWindow(QMainWindow):
         panes.addWidget(self.tree)
         panes.addWidget(right)
         panes.setStretchFactor(1, 2)
+        panes.setSizes([440, 540])
 
         self.console = QPlainTextEdit()
         self.console.setReadOnly(True)
@@ -55,6 +57,7 @@ class MainWindow(QMainWindow):
         outer.addWidget(panes)
         outer.addWidget(self.console)
         outer.setStretchFactor(0, 3)
+        outer.setSizes([460, 150])
         self.setCentralWidget(outer)
 
     def _build_menu(self):
@@ -70,12 +73,34 @@ class MainWindow(QMainWindow):
         self.menuBar().addMenu("&Help").addAction("&About").triggered.connect(
             self.about)
 
+    def _build_toolbar(self):
+        tb = self.addToolBar("Main")
+        tb.addWidget(QLabel(" MCU: "))
+        self.mcu_combo = QComboBox()
+        self.mcu_combo.addItems(self.project.available_mcus())
+        self.mcu_combo.currentTextChanged.connect(self._on_mcu_changed)
+        tb.addWidget(self.mcu_combo)
+
+    def _on_mcu_changed(self, name):
+        # live editing: change the target, the diagnostics/budget re-derive.
+        if self.project.path and name and name != self.project.mcu:
+            self.project.set_mcu(name)
+            self.refresh()
+
     # ---- view refresh ---------------------------------------------------
     def refresh(self):
+        self._sync_mcu_combo()
         self._populate_tree()
         self._populate_diagnostics()
         name = self.project.name if self.project.path else "(no project)"
         self.setWindowTitle(f"EROS Configurator — {name}")
+
+    def _sync_mcu_combo(self):
+        self.mcu_combo.blockSignals(True)
+        idx = self.mcu_combo.findText(self.project.mcu)
+        if idx >= 0:
+            self.mcu_combo.setCurrentIndex(idx)
+        self.mcu_combo.blockSignals(False)
 
     def _populate_tree(self):
         self.tree.clear()
@@ -91,6 +116,19 @@ class MainWindow(QMainWindow):
         mroot = QTreeWidgetItem(self.tree, ["Models", str(len(models))])
         for m in models:
             QTreeWidgetItem(mroot, [m["name"], f"{m['rate_ms']} ms"])
+
+        b = p.budget()
+        memroot = QTreeWidgetItem(self.tree, ["Memory (static RAM)", ""])
+        if b is None:
+            QTreeWidgetItem(memroot, ["(config invalid)", "—"])
+        else:
+            used = b["kernel"] + b["arena"] + b["rings"]
+            QTreeWidgetItem(memroot, ["kernel state", f"~{b['kernel']} B"])
+            QTreeWidgetItem(memroot, ["pool arena", f"{b['arena']} B"])
+            QTreeWidgetItem(memroot, ["uart rings", f"{b['rings']} B"])
+            QTreeWidgetItem(memroot, ["stack + idle (est.)",
+                                      f"~{b['sram_total'] - used} B "
+                                      f"of {b['sram_total']}"])
         self.tree.expandAll()
 
     def _populate_diagnostics(self):

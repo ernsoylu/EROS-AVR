@@ -46,14 +46,37 @@ def test_projectmodel_roundtrip_preserves_comments(tmp_path):
     assert "# a leading comment" in text and "# inline" in text
 
 
+def test_projectmodel_set_mcu_and_budget():
+    p = ProjectModel(REF)
+    assert "atmega2560" in p.available_mcus()
+    b = p.budget()
+    # reference-demo: 4x8 pool arena, 128+64 uart rings
+    assert b["arena"] == 32 and b["rings"] == 192
+    p.set_mcu("attiny85")
+    assert "UNKNOWN_MCU" in {d.code for d in p.diagnostics()}
+    p.set_mcu("atmega328p")
+    assert "UNKNOWN_MCU" not in {d.code for d in p.diagnostics()}
+
+
 def test_mainwindow_smoke():
     from gui.main_window import MainWindow
     _app()
     p = ProjectModel(REF)
     w = MainWindow(p)
-    # System + Tasks + Models roots
-    assert w.tree.topLevelItemCount() == 3
+    # System + Tasks + Models + Memory roots
+    assert w.tree.topLevelItemCount() == 4
     assert w.diag.rowCount() == len(p.diagnostics())
+    w.close()
+
+
+def test_mainwindow_mcu_combo_live():
+    from gui.main_window import MainWindow
+    _app()
+    p = ProjectModel(REF)
+    w = MainWindow(p)
+    assert w.mcu_combo.count() >= 2  # atmega328p, atmega2560
+    w._on_mcu_changed("atmega2560")
+    assert p.mcu == "atmega2560"
     w.close()
 
 
