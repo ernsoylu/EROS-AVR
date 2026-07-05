@@ -59,10 +59,15 @@ drivers/              app-agnostic drivers completing the ATmega328P
                       INT/PCINT, Timer0 PWM, Timer1 input capture,
                       analog comparator — pins, WCETs, ISR categories
                       and resource conflicts in its README.md
-tools/erosgen.py      system configurator: compiles each app's app.yaml
-                      into config.h/config.c/Makefile + ASW skeletons;
-                      selects which peripherals compile and sizes the
-                      RAM-dominant buffers — see tools/README.md
+tools/erosgen.py      shim entrypoint for the erosgen package
+tools/erosgen/        the system configurator (uv/PyYAML): compiles each app's
+                      app.yaml into config.*/Makefile (+ ASW skeletons), selects
+                      peripherals, sizes RAM-dominant buffers, GENERATES THE RTE
+                      from a `models:` section, and targets any MCU profile
+                      (`mcu/*.yaml`: atmega328p, atmega2560) — see tools/README.md
+gui/                  optional PySide6 configurator over the engine: open/create
+                      a project, bind model ports to peripherals, live
+                      diagnostics + memory budget, generate/build — see gui/README.md
 codegen/              Simulink / Embedded Coder output (ASW): drop
                       <model>_ert_rtw here, kept frozen; README.md
                       documents model configuration and data types
@@ -255,27 +260,34 @@ BSW   drivers/ (MCAL) + kernel/  drivers + EROS OS (frozen)
 
 The RTE owns the three integration concerns — **port data flow** (drivers
 ↔ model I/O), **calibration** (model parameters), and **scheduling**
-(runnable → OS task/alarm). `rte/Rte_Cfg.h` is pure declarative config,
-shaped so `tools/erosgen.py` can generate the RTE from an `app.yaml`
-`models:` section later, the same way it already generates
-`config.*`/`Makefile`. The worked example (`appKnbSwt`: ADC knob → digital
-output) and the future generation schema are in `rte/README.md`.
+(runnable → OS task/alarm). `rte/Rte_Cfg.h` is pure declarative config, and
+`tools/erosgen.py` **generates the whole RTE** (`Rte.h`/`Rte_Cfg.h`/`Rte.c`)
+from an `app.yaml` `models:` section — parsing the model's exported signals,
+type-checking each port against its driver, wiring the model as
+`TASK_/ALARM_<model>` in `config.*`, and adding the RTE + model sources to the
+Makefile — the same way it generates `config.*`/`Makefile`. The hand-written
+`rte/` is the worked reference (`appKnbSwt`: ADC knob → digital output);
+`tools/fixtures/model_app/` is a complete generated app (built under CI). See
+`rte/README.md`.
 
 ## Continuous integration & simulation testing
 
 Because **Renode has no AVR core**, the firmware is executed under
 **simavr** (the AVR-native simulator) in CI. `.github/workflows/ci.yml`
-runs three jobs on every push/PR:
+runs four jobs on every push/PR:
 
 1. **build** — erosgen unit tests, reference demo + kernel/whole-image
-   budget gates, and `-Werror` compile gates for the drivers and the
-   generated model + RTE.
+   budget gates, `-Werror` compile gates for the drivers and the hand-written
+   model + RTE, and an **end-to-end gate that generates the `model_app`
+   fixture from its `models:` block and builds it with `avr-gcc -Werror`**.
 2. **sim** — builds self-checking test firmware and a `libsimavr` host
    runner (`tests/`) that injects stimulus (ADC voltages/ramps, GPIO
    edges, SPI loopback) and reads a UART `PASS/FAIL` sentinel. Covers
    every peripheral driver plus the ASW→RTE→BSW model swept across its
    full ADC range.
 3. **smoke** — `qemu-system-avr` boot/run check.
+4. **gui** — the PySide6 configurator's tests, run headless under Qt's
+   offscreen platform.
 
 Run the simulation matrix locally with `make -C tests test` (needs
 `gcc-avr avr-libc libsimavr-dev simavr`). See `tests/README.md`.

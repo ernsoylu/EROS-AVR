@@ -1,0 +1,104 @@
+# =====================================================================
+# ATmega328P / Arduino Nano hardware profile for erosgen.
+#
+# The MCU-specific facts the generator needs. Adding a target (e.g.
+# atmega2560) is a new file here + MCUProfile, not a code change. Timer2
+# is the kernel tick and owns no application pins.
+# =====================================================================
+name: atmega328p
+
+# Valid AVR port letters on this part (DDR<x>/PORT<x>/PIN<x> exist).
+ports: BCD
+
+# Toolchain strings emitted into the Makefile.
+toolchain:
+  mcu: atmega328p
+  f_cpu: 16000000UL
+  avrdude:
+    part: m328p
+    programmer: arduino
+    baud: 57600
+    baud_note: "old-bootloader Nano; Optiboot: 115200"
+
+# Board silk (Arduino Nano) -> ATmega328P port pin. Either form is accepted in
+# the YAML; A0..A5 double as PC0..PC5 (A6/A7 are ADC-only, no port pin).
+aliases:
+  D0: PD0
+  D1: PD1
+  D2: PD2
+  D3: PD3
+  D4: PD4
+  D5: PD5
+  D6: PD6
+  D7: PD7
+  D8: PB0
+  D9: PB1
+  D10: PB2
+  D11: PB3
+  D12: PB4
+  D13: PB5
+  A0: PC0
+  A1: PC1
+  A2: PC2
+  A3: PC3
+  A4: PC4
+  A5: PC5
+
+# Peripheral -> driver source file. Resolution order (in the generator):
+# application directory first, then drivers_dir. Order here is preserved
+# and drives the "did you mean" hint for unknown peripherals.
+peripherals:
+  uart:       uart.c
+  pwm:        pwm.c          # Timer1 PWM
+  adc:        adc.c
+  eeprom:     eeprom.c
+  i2c:        i2c.c
+  spi:        spi.c
+  extint:     extint.c
+  timer0_pwm: timer0_pwm.c
+  icp:        icp.c
+  acomp:      acomp.c
+
+# Pins each peripheral drives when enabled - the single source of truth
+# for conflict detection. Plain ADC declares nothing (channels A0..A5 are
+# claimed only if the app lists them; A6/A7 have no port pin).
+peripheral_pins:
+  uart:       [PD0, PD1]              # RXD, TXD
+  pwm:        [PB1]                    # OC1A
+  i2c:        [PC4, PC5]              # SDA, SCL
+  spi:        [PB2, PB3, PB4, PB5]    # SS, MOSI, MISO, SCK
+  timer0_pwm: [PD5, PD6]             # OC0B, OC0A
+  icp:        [PB0]                    # ICP1
+  acomp:      [PD7]                    # AIN1 (AIN0/PD6 added if external)
+  extint:     []                       # pins are app-assigned
+  eeprom:     []
+  adc:        []
+
+# Shared-resource conflicts not expressible as pin overlap (two peripherals
+# contending for the same timer/hardware block): [a, b, reason].
+conflicts:
+  - [icp, pwm, "both own Timer1 (capture vs ICR1-as-TOP)"]
+
+# Driver Init() call emitted into Board_ConfigurePins() (omit => no auto-init;
+# eeprom needs none, extint/acomp take app-specific args -> hand-written setup).
+driver_init:
+  uart:       "UART_Init();"
+  pwm:        "PWM_Init();"
+  adc:        "ADC_Init();"
+  i2c:        "I2C_Init();"
+  spi:        "SPI_Init(SPI_MODE0, SPI_CLK_DIV16);"
+  timer0_pwm: "T0PWM_Init();"
+  icp:        "ICP_Init();"
+
+# Driver header per peripheral (included by os_gen.h for enabled drivers).
+driver_header:
+  uart:       uart.h
+  pwm:        pwm.h
+  adc:        adc.h
+  eeprom:     eeprom.h
+  i2c:        i2c.h
+  spi:        spi.h
+  extint:     extint.h
+  timer0_pwm: timer0_pwm.h
+  icp:        icp.h
+  acomp:      acomp.h

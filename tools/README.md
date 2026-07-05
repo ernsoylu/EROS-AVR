@@ -1,11 +1,15 @@
 # erosgen — the EROS system configurator
 
-`erosgen.py` compiles one **`app.yaml`** (the OSEK "OIL file") into the
-static OS configuration, the application Makefile, and — the first time
-only — per-rate ASW skeletons and a `main.c` integration stub. It is the
-single place to choose which peripherals are compiled, size the buffers
-that dominate RAM, wire tasks to the scheduler, and bind Simulink model
-rates to tasks.
+`erosgen` compiles one **`app.yaml`** (the OSEK "OIL file") into the static OS
+configuration, the application Makefile, and — the first time only — per-rate
+ASW skeletons and a `main.c` integration stub. It is the single place to choose
+which peripherals are compiled, size the buffers that dominate RAM, wire tasks
+to the scheduler, target an MCU, and — from a `models:` section — **generate the
+RTE** that binds a Simulink model's ports to peripherals and schedules it.
+
+`erosgen` is a package (`tools/erosgen/`: `model` · `validate` · `mcu` ·
+`parse` · `bind` · `emit/*` · `cli`); `tools/erosgen.py` is a thin shim so the
+invocation and `import erosgen` are unchanged.
 
 ```sh
 python3 tools/erosgen.py app.yaml          # generate
@@ -13,11 +17,21 @@ python3 tools/erosgen.py app.yaml --check  # validate + report, write nothing
 make config                                # same, from inside a generated app
 ```
 
-Requires Python ≥ 3.8 and PyYAML (`pip install pyyaml`). Generated
-Makefiles include a `config` target that reruns the generator, so after
-editing `app.yaml` you run `make config` then `make` (config is *not*
-auto-rebuilt, so a Python-less CI can still `make` from committed
-output). Run the test suite with `python3 tools/test_erosgen.py`.
+**Environment (`uv`).** Deps are managed with [uv]; the core needs only PyYAML,
+with opt-in extras `[gui]` (PySide6, ruamel.yaml) and `[mat]` (scipy):
+
+```sh
+uv sync                                     # core env
+uv run python tools/erosgen.py app.yaml     # generate under uv
+uv run pytest tools/test_erosgen.py         # 18 engine tests
+uv run --extra gui python -m gui [app.yaml] # the PySide6 configurator (gui/)
+```
+
+Generated Makefiles include a `config` target that reruns the generator, so
+after editing `app.yaml` you run `make config` then `make` (config is *not*
+auto-rebuilt, so a Python/uv-less CI can still `make` from committed output).
+
+[uv]: https://docs.astral.sh/uv/
 
 ## Why this saves RAM
 
@@ -96,6 +110,7 @@ reference demo's hand-tuned map exactly.
 ```yaml
 system:
   name: myapp                 # TARGET (myapp.hex)
+  mcu: atmega328p             # MCU profile (mcu/*.yaml): atmega328p | atmega2560
   kernel_dir: ../kernel       # path to the EROS kernel sources
   drivers_dir: ../drivers     # optional: where shared drivers resolve
   tick_hz: 1000               # must be 1000 (kernel Timer2 is fixed)
@@ -126,11 +141,25 @@ resources:
 
 pool: { block_size: 8, blocks: 4 }
 
-simulink:                     # optional Embedded Coder binding
-  model: ctrl                 # expects codegen/ctrl_ert_rtw/
+simulink:                     # optional simple binding: calls model_step() in a
+  model: ctrl                 #   task body (no RTE generated)
   dir: ../codegen
   rate_map: { step0: ctrl }   # generated glue calls ctrl_step0() in TASK_CTRL
+
+models:                       # optional: GENERATE the RTE for a Simulink SWC.
+  - name: appKnbSwt           #   erosgen parses codegen/appKnbSwt_ert_rtw/,
+    codegen_dir: ../codegen/appKnbSwt_ert_rtw   # type-checks the port bindings,
+    runnable: appKnbSwt_Runnable                # emits Rte.h/Rte_Cfg.h/Rte.c,
+    rate_ms: 10               #   and wires it as TASK_/ALARM_APPKNBSWT.
+    wcet_ms: 2                # optional (default 1)
+    ports:                    # each IN_/OUT_ signal -> a driver (adc/dio/pwm)
+      in:  [{ signal: IN_KnbVal_Z, driver: adc, channel: 0 }]
+      out: [{ signal: OUT_Led1_B, driver: dio, port: B, bit: 5 }]
 ```
+
+See `rte/README.md` for the RTE it generates and `mcu/*.yaml` for MCU profiles.
+The `gui/` PySide6 app drives all of this interactively (open/create a project,
+bind model ports, live diagnostics, memory budget, generate/build).
 
 ## Reference configs
 
