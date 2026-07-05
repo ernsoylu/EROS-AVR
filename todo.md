@@ -107,8 +107,10 @@ class Diagnostic:
 
 **Phase 1 complete end-to-end** (parse → bind → emit → schedule → build).
 
-### Phase 2 — MCU breadth
-- [ ] `mcu/atmega2560.yaml` (same avr backend) to prove the abstraction on a same-family target
+### Phase 2 — MCU breadth ✅
+- [x] Threaded `MCUProfile` through the tool: `system.mcu` selects the target (default `atmega328p`); the profile now also holds valid ports, board aliases, and toolchain strings (mmcu/F_CPU/avrdude). `model`, `validate.normalize_pin`, and the makefile/osgen emitters read `s.profile` (module globals removed).
+- [x] `mcu/atmega2560.yaml` — second same-family target (ports A..L, Mega `D13`→`PB7`, PORTE UART, `m2560`/`wiring`). `mega_gpio` fixture proves it: 2560 Makefile + `os_gen.h` driving `PORTL` (2560-only) and `PB7`; `PL7` rejected on 328P, accepted on 2560. 328P byte-identical (17/17, zero drift).
+- Confirmed the standing risk: **ESP32 is still a separate backend** — this proved *same-family* breadth on the AVR backend; ESP32 breaks the emitter idioms and needs a kernel port.
 
 ### Phase 3 — PySide6 thin client (last)
 - [ ] Two-pane UI; live diagnostics from `validate.py`; build console streaming `make`; File/Edit/About menus
