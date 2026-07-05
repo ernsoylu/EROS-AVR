@@ -16,7 +16,7 @@ Measured with avr-gcc 7.3 (`-Os`, non-LTO reference build — the shipped
 | Kernel Flash (`eros.o` + `config.o`) | ≤ 3072 B | **1945 B** |
 | Kernel static RAM (`eros.o`) | ≤ 128 B | **35 B** |
 | Pool arena (user payload, reported separately) | — | 32 B |
-| Demo application RAM (`main.o`) | — | 6 B |
+| Demo application RAM (all ASW objects) | — | 6 B |
 | Stack + idle RAM (reported separately) | — | 1975 B |
 | Whole demo image (LTO + `--gc-sections`) | — | 2132 B Flash / 72 B RAM |
 
@@ -35,13 +35,33 @@ kernel/               app-agnostic kernel, reused by every application
 config.h / config.c   the reference demo's static configuration ("OIL
                       file"): tasks, priorities, alarms, resources, pool
                       geometry, hooks, aliveness mask — PROGMEM tables
-main.c                reference demo application (tasks + hooks)
+main.c                integration layer: hooks + one-shot init task +
+                      main() — no periodic application code
+asw_10ms.c/.h         TASK_FAST — scope channel PD2 + mailbox consumer
+asw_50ms.c/.h         TASK_MED — scope channel PD3 + pool/mailbox producer
+asw_500ms.c/.h        TASK_SLOW (PD4, ChainTask demo) + the chained
+                      TASK_REPORT 2 s heartbeat (PD5)
+asw_ipc.h             producer→consumer payload protocol shared by the
+                      10/50 ms rates + the concurrency rationale
+actuator.c/.h         polymorphic GPIO driver (OOP-in-C, instances and
+                      vtables 100% in PROGMEM)
 Makefile              mandated warning-free flags, .map file, size/budget
                       targets, avrdude flash target (old-bootloader baud)
 comprehensive-demo/   a second, bigger application on the same kernel:
                       interrupt-driven serial console (ON/OFF/STAT),
                       debounced button, Timer1 PWM breathing LED,
                       pool+mailbox IPC — see its README.md
+drivers/              app-agnostic drivers completing the ATmega328P
+                      peripheral coverage: ADC, EEPROM, I2C, SPI,
+                      INT/PCINT, Timer0 PWM, Timer1 input capture,
+                      analog comparator — pins, WCETs, ISR categories
+                      and resource conflicts in its README.md
+tools/erosgen.py      system configurator: compiles app.yaml into
+                      config.h/config.c/Makefile + ASW skeletons;
+                      selects which peripherals compile and sizes the
+                      RAM-dominant buffers — see tools/README.md
+app.yaml              the reference demo's configuration, from which
+                      its config.*/Makefile are generated
 codegen/              Simulink / Embedded Coder integration: drop
                       <model>_ert_rtw output here; README.md documents
                       model configuration, data types, GPIO/PWM/ADC
@@ -54,6 +74,14 @@ provides its own and compiles the kernel sources against it (`-I.`
 first) — the OSEK "one kernel, per-app static config" model. The
 `comprehensive-demo/` application reuses the kernel unchanged with a
 completely different task set.
+
+That per-app `config.h`/`config.c`/`Makefile` are **generated from a
+single `app.yaml`** by `tools/erosgen.py` (the OIL compiler): it picks
+which peripheral drivers compile, sizes the RAM-dominant buffers (UART
+rings, pool arena), assigns rate-monotonic priorities, and enforces
+schedulability and pin/peripheral-conflict rules — an invalid system
+cannot be generated. Both shipped demos regenerate to byte-identical
+images from their `app.yaml`. See `tools/README.md`.
 
 ## Architecture in one page
 
@@ -110,7 +138,7 @@ completely different task set.
   recovery, or use WDT interrupt+reset mode. The captured reset cause
   is exported as `os_resetCause`.
 
-## Reference demo (`main.c`)
+## Reference demo
 
 | Task | Prio | Period | Pin | Purpose |
 |---|---|---|---|---|
@@ -134,6 +162,42 @@ PD5 beats 6 times, PB5 toggles exactly once at boot, and a dedicated
 test confirmed `SetAbsAlarm` with a passed start value expires exactly
 one counter wraparound later (tick 65536 + start), including the
 start == now equality edge.
+
+## ASW structure & shared data (why there are no mutexes)
+
+Both applications follow the structure recommended for
+Simulink/Embedded Coder output in `codegen/README.md` §4: **one C/H
+pair per task rate** (`asw_10ms.c`, `asw_50ms.c`, …), a thin
+integration `main.c` (hooks + init task only), and *no* application
+state shared between rate files through ad-hoc globals. Data crosses a
+rate boundary in exactly two sanctioned ways:
+
+1. **Kernel IPC** — pool block + single-slot mailbox, wrapped in a
+   `GetResource`/`ReleaseResource` pair marking the handoff as one
+   logical unit (reference demo, `asw_ipc.h`).
+2. **A signals module** — `comprehensive-demo/asw_signals.c/.h`, the
+   hand-written equivalent of Simulink's Rate Transition layer: every
+   cross-rate signal is accessed only through its accessor functions.
+
+Neither path needs a mutex or semaphore, **by design, not by
+omission**: the kernel is non-preemptive run-to-completion, so two
+tasks can never interleave and task↔task data races cannot exist —
+the same reason Embedded Coder's rate-transition buffers are never
+contended here (`codegen/README.md` §4). The only real concurrency
+hazard is task↔ISR sharing, and the rules for it are:
+
+- ISR-shared objects are `volatile`; single-byte accesses are naturally
+  atomic on AVR, anything wider runs under
+  `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)` (the kernel's own contract, see
+  `kernel/eros.c`).
+- A critical section against the OS tick is a resource with
+  `mask_tick_isr = 1` (`RES_DEMO`) — the OSEK ISR-ceiling pattern.
+- A blocking semaphore is deliberately impossible: BCC1 has no WAITING
+  state, and adding one would forfeit the single-shared-stack,
+  statically-bounded-depth guarantee. If the kernel ever became
+  preemptive, mutual exclusion attaches at the existing seams — inside
+  the resource-wrapped IPC handoffs and the `asw_signals` accessors —
+  without touching any task code.
 
 ## Build & flash
 
