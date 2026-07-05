@@ -62,11 +62,19 @@ tools/erosgen.py      system configurator: compiles app.yaml into
                       RAM-dominant buffers — see tools/README.md
 app.yaml              the reference demo's configuration, from which
                       its config.*/Makefile are generated
-codegen/              Simulink / Embedded Coder integration: drop
-                      <model>_ert_rtw output here; README.md documents
-                      model configuration, data types, GPIO/PWM/ADC
-                      I/O binding, the rate→task→alarm mapping onto
-                      this scheduler, and the Makefile wiring
+codegen/              Simulink / Embedded Coder output (ASW): drop
+                      <model>_ert_rtw here, kept frozen; README.md
+                      documents model configuration and data types
+rte/                  Runtime Environment: the single hand-written layer
+                      binding a model's ports/params/runnable to the
+                      drivers + OS (ASW→RTE→BSW) — see its README.md
+model/                the Simulink project itself (.slx/.sldd + test
+                      harness) that generates codegen/ (caches ignored)
+tests/                simavr simulation tests: on-chip self-checks +
+                      libsimavr host runner exercising every peripheral
+                      driver and the ASW→RTE→BSW model — see its README.md
+.github/workflows/    CI: build+budget, simavr peripheral/model matrix,
+                      qemu boot smoke — see "Continuous integration" below
 ```
 
 The kernel directory never contains a `config.h`; each application
@@ -230,6 +238,44 @@ cd comprehensive-demo && make              # the second application
 Mandated flags (warning-free): `-Wall -Wextra -Werror -std=c99 -Os
 -flto -ffunction-sections -fdata-sections -Wl,--gc-sections
 -Wl,-Map=eros.map -mmcu=atmega328p -DF_CPU=16000000UL`.
+
+## Model integration — ASW → RTE → BSW
+
+Simulink/Embedded Coder models integrate through a layered, AUTOSAR-style
+architecture — no ad-hoc glue:
+
+```
+ASW   codegen/<model>_ert_rtw/   generated algorithm: ports + runnable (frozen)
+RTE   rte/                       the ONLY hand-written layer
+BSW   drivers/ (MCAL) + kernel/  drivers + EROS OS (frozen)
+```
+
+The RTE owns the three integration concerns — **port data flow** (drivers
+↔ model I/O), **calibration** (model parameters), and **scheduling**
+(runnable → OS task/alarm). `rte/Rte_Cfg.h` is pure declarative config,
+shaped so `tools/erosgen.py` can generate the RTE from an `app.yaml`
+`models:` section later, the same way it already generates
+`config.*`/`Makefile`. The worked example (`appKnbSwt`: ADC knob → digital
+output) and the future generation schema are in `rte/README.md`.
+
+## Continuous integration & simulation testing
+
+Because **Renode has no AVR core**, the firmware is executed under
+**simavr** (the AVR-native simulator) in CI. `.github/workflows/ci.yml`
+runs three jobs on every push/PR:
+
+1. **build** — erosgen unit tests, root demo + memory-budget gate,
+   comprehensive-demo, and `-Werror` compile gates for the drivers and
+   the generated model + RTE.
+2. **sim** — builds self-checking test firmware and a `libsimavr` host
+   runner (`tests/`) that injects stimulus (ADC voltages/ramps, GPIO
+   edges, SPI loopback) and reads a UART `PASS/FAIL` sentinel. Covers
+   every peripheral driver plus the ASW→RTE→BSW model swept across its
+   full ADC range.
+3. **smoke** — `qemu-system-avr` boot/run check.
+
+Run the simulation matrix locally with `make -C tests test` (needs
+`gcc-avr avr-libc libsimavr-dev simavr`). See `tests/README.md`.
 
 ## Conformance notes
 

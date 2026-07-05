@@ -1,5 +1,13 @@
 # Embedding Simulink-generated code on EROS
 
+> **Integration lives in `rte/`, not here.** Generated code in this folder
+> is the **ASW** and is kept frozen. The hand-written binding to the
+> drivers and OS (port data flow, calibration, runnable→task scheduling)
+> is the **RTE** layer in [`rte/`](../rte/README.md) — the worked example
+> (`appKnbSwt`) and the future `erosgen` generation schema are documented
+> there. The §3–§5 "glue in codegen/" pattern below is the earlier
+> approach, superseded by the ASW→RTE→BSW layering.
+
 This folder receives C code generated from Simulink models (Embedded
 Coder, `ert.tlc`) and documents the contract between a model and the
 **EROS** (Embedded Realtime Operating System) scheduler: how to
