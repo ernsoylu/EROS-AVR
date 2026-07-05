@@ -211,6 +211,21 @@ def test_mcu_profile_loads_atmega328p():
         raise AssertionError("expected FileNotFoundError for unknown MCU")
 
 
+def test_parse_ert_appknbswt():
+    from erosgen.parse import parse_model
+    mi = parse_model(REPO / "codegen" / "appKnbSwt_ert_rtw", "appKnbSwt")
+    assert mi.init_fn == "appKnbSwt_initialize"
+    assert mi.runnable_fns == ("appKnbSwt_Runnable",)
+    ins = {s.name: s for s in mi.inputs}
+    outs = {s.name: s for s in mi.outputs}
+    assert ins["IN_KnbVal_Z"].ctype == "uint16_T" and ins["IN_KnbVal_Z"].dim == 1
+    assert outs["OUT_Led1_B"].ctype == "boolean_T"
+    cal = {c.name: c for c in mi.calibrations}
+    assert cal["ADC_MAX"].kind == "define" and cal["ADC_MAX"].value == "1023U"
+    assert cal["Knb_Hyst_Pc_Pt"].kind == "extern"
+    assert cal["Knb_Hyst_Pc_Pt"].ctype == "uint8_T"
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]
