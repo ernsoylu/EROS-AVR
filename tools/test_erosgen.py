@@ -193,6 +193,24 @@ def test_collect_diagnostics_clean_for_reference_demo():
     assert [d for d in diags if d.severity == "error"] == []
 
 
+def test_mcu_profile_loads_atmega328p():
+    from erosgen.mcu import load_profile
+    p = load_profile("atmega328p")
+    assert p.name == "atmega328p"
+    assert p.known_peripherals["uart"] == "uart.c"
+    assert p.peripheral_pins["spi"] == ["PB2", "PB3", "PB4", "PB5"]
+    assert p.driver_init["adc"] == "ADC_Init();"
+    assert p.conflicts == [("icp", "pwm",
+                            "both own Timer1 (capture vs ICR1-as-TOP)")]
+    # unknown target fails loudly (not a silent empty profile)
+    try:
+        load_profile("atmega_nope")
+    except FileNotFoundError:
+        pass
+    else:
+        raise AssertionError("expected FileNotFoundError for unknown MCU")
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]
