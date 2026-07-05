@@ -1,0 +1,91 @@
+# =====================================================================
+# ATmega2560 / Arduino Mega hardware profile for erosgen.
+#
+# Demonstrates that a same-family target is a data change: only this file
+# is new. NOTE: the EROS kernel (eros.c) and drivers/ are still 328P-only
+# (Timer2 tick, register values), so a 2560 app *generates* correctly but
+# needs a kernel/driver port before it builds - out of scope for the tool.
+# =====================================================================
+name: atmega2560
+
+# The 2560 has PORTA..PORTL (AVR skips port I).
+ports: ABCDEFGHJKL
+
+toolchain:
+  mcu: atmega2560
+  f_cpu: 16000000UL
+  avrdude:
+    part: m2560
+    programmer: wiring          # Mega bootloader is STK500v2 (wiring)
+    baud: 115200
+    baud_note: "Arduino Mega (STK500v2/wiring)"
+
+# Arduino Mega digital header silk -> ATmega2560 port pin (D13 = on-board LED
+# = PB7, unlike the Nano's PB5). Analog/extended pins omitted for brevity.
+aliases:
+  D0: PE0
+  D1: PE1
+  D2: PE4
+  D3: PE5
+  D4: PG5
+  D5: PE3
+  D6: PH3
+  D7: PH4
+  D8: PH5
+  D9: PH6
+  D10: PB4
+  D11: PB5
+  D12: PB6
+  D13: PB7
+
+# Peripheral -> driver source (same driver names; the sources themselves would
+# need a 2560 port, but the tool only references the file names here).
+peripherals:
+  uart:       uart.c
+  pwm:        pwm.c
+  adc:        adc.c
+  eeprom:     eeprom.c
+  i2c:        i2c.c
+  spi:        spi.c
+  extint:     extint.c
+  timer0_pwm: timer0_pwm.c
+  icp:        icp.c
+  acomp:      acomp.c
+
+# Pin ownership per peripheral on the 2560 (datasheet). Differs from the 328P:
+# UART0 is on PORTE, SPI on PB0..PB3, I2C on PORTD.
+peripheral_pins:
+  uart:       [PE0, PE1]              # RXD0, TXD0
+  pwm:        [PB5]                    # OC1A
+  i2c:        [PD1, PD0]              # SDA, SCL
+  spi:        [PB0, PB2, PB3, PB1]    # SS, MOSI, MISO, SCK
+  timer0_pwm: [PG5, PB7]             # OC0B, OC0A
+  icp:        [PD4]                    # ICP1
+  acomp:      [PE3]                    # AIN1 (AIN0/PE2 if external)
+  extint:     []
+  eeprom:     []
+  adc:        []
+
+conflicts:
+  - [icp, pwm, "both own Timer1 (capture vs ICR1-as-TOP)"]
+
+driver_init:
+  uart:       "UART_Init();"
+  pwm:        "PWM_Init();"
+  adc:        "ADC_Init();"
+  i2c:        "I2C_Init();"
+  spi:        "SPI_Init(SPI_MODE0, SPI_CLK_DIV16);"
+  timer0_pwm: "T0PWM_Init();"
+  icp:        "ICP_Init();"
+
+driver_header:
+  uart:       uart.h
+  pwm:        pwm.h
+  adc:        adc.h
+  eeprom:     eeprom.h
+  i2c:        i2c.h
+  spi:        spi.h
+  extint:     extint.h
+  timer0_pwm: timer0_pwm.h
+  icp:        icp.h
+  acomp:      acomp.h

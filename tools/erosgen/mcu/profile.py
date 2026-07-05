@@ -1,9 +1,10 @@
 """MCU hardware profile loaded from mcu/<name>.yaml.
 
-Phase 0 externalizes the ATmega328P tables into data so adding a target is a
-new YAML file, not a code change. Phase 2 (atmega2560) threads an MCUProfile
-through System/emitters; today the package __init__ still exposes the default
-profile's tables as module-level constants for the single-target consumers.
+A profile is the complete set of target-specific facts erosgen needs: valid
+ports, board pin aliases, toolchain strings (mmcu / F_CPU / avrdude), and the
+peripheral/pin/driver tables. Adding a target is a new YAML file here - System
+and the emitters read the selected profile, so no Python changes are needed for
+a same-family part.
 """
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,14 @@ PROFILE_DIR = Path(__file__).resolve().parent
 @dataclass(frozen=True)
 class MCUProfile:
     name: str
+    ports: str                # valid AVR port letters, e.g. "BCD"
+    aliases: dict             # board silk -> AVR pin, e.g. {"D13": "PB5"}
+    mcu_gcc: str              # -mmcu value, e.g. "atmega328p"
+    f_cpu: str                # F_CPU macro value, e.g. "16000000UL"
+    avrdude_part: str         # avrdude -p, e.g. "m328p"
+    avrdude_programmer: str   # avrdude -c, e.g. "arduino"
+    avrdude_baud: int         # avrdude -b default
+    avrdude_baud_note: str    # trailing comment on the BAUD line
     known_peripherals: dict   # peripheral -> driver source .c
     peripheral_pins: dict     # peripheral -> [pin, ...]
     conflicts: list           # [(a, b, reason), ...]
@@ -30,8 +39,18 @@ class MCUProfile:
             raise FileNotFoundError(
                 f"erosgen: no MCU profile '{name}' at {path} (have: {avail})")
         d = yaml.safe_load(path.read_text()) or {}
+        tc = d.get("toolchain", {}) or {}
+        avr = tc.get("avrdude", {}) or {}
         return cls(
             name=d.get("name", name),
+            ports=str(d.get("ports", "")),
+            aliases=dict(d.get("aliases", {})),
+            mcu_gcc=tc.get("mcu", d.get("name", name)),
+            f_cpu=str(tc.get("f_cpu", "16000000UL")),
+            avrdude_part=avr.get("part", ""),
+            avrdude_programmer=avr.get("programmer", "arduino"),
+            avrdude_baud=int(avr.get("baud", 57600)),
+            avrdude_baud_note=avr.get("baud_note", ""),
             known_peripherals=dict(d.get("peripherals", {})),
             peripheral_pins={k: list(v)
                              for k, v in (d.get("peripheral_pins") or {}).items()},

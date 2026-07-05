@@ -300,6 +300,40 @@ def test_model_app_end_to_end_goldens():
     assert "ALARM_APPKNBSWT" in got["config.h"]
 
 
+def test_mega_mcu_abstraction():
+    from erosgen import System, collect_diagnostics
+    from erosgen.emit import emit_makefile, emit_os_gen_h
+    d = HERE / "fixtures" / "mega_gpio"
+    doc = yaml.safe_load((d / "app.yaml").read_text())
+    s = System(doc, d / "app.yaml")
+    assert s.mcu == "atmega2560" and s.profile.name == "atmega2560"
+    mk = emit_makefile(s, d.resolve())
+    assert "MCU     := atmega2560" in mk and "-p m2560 -c wiring" in mk
+    assert mk == (d / "Makefile").read_text()
+    og = emit_os_gen_h(s)
+    assert "DDRL |= (uint8_t)(1u << PL7)" in og   # PORTL: 2560-only
+    assert "DDRB |= (uint8_t)(1u << PB7)" in og   # Mega D13 alias -> PB7
+    assert og == (d / "os_gen.h").read_text()
+
+    # PL7 (port L) is profile-driven: rejected on the 328P, accepted on the 2560.
+    def pl7_codes(mcu):
+        doc2 = {"system": {"name": "t", "mcu": mcu},
+                "gpio": [{"pin": "PL7", "dir": "out"}],
+                "tasks": [{"name": "a", "period_ms": 10, "wcet_ms": 1}],
+                "resources": [{"name": "r", "users": ["a"]}]}
+        return {x.code for x in collect_diagnostics(doc2, Path("app.yaml"))}
+    assert "UNKNOWN_PIN" in pl7_codes("atmega328p")
+    assert "UNKNOWN_PIN" not in pl7_codes("atmega2560")
+
+
+def test_unknown_mcu_is_reported():
+    doc = {"system": {"name": "t", "mcu": "attiny85"},
+           "tasks": [{"name": "a", "period_ms": 10, "wcet_ms": 1}],
+           "resources": [{"name": "r", "users": ["a"]}]}
+    codes = {x.code for x in erosgen.collect_diagnostics(doc, Path("app.yaml"))}
+    assert "UNKNOWN_MCU" in codes
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

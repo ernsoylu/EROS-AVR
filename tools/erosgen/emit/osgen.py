@@ -5,7 +5,6 @@ without editing hand-written main.c (the regeneration-drift fix).
 """
 
 from ..constants import GENERATED_BANNER, INCLUDE_EROS_H
-from ..mcu import DRIVER_HEADER, DRIVER_INIT
 
 
 def emit_os_gen_h(s):
@@ -30,7 +29,7 @@ def emit_os_gen_h(s):
     L.append("#include <avr/io.h>")
     L.append(INCLUDE_EROS_H)
     for p in sorted(s.peripherals):
-        L.append(f'#include "{DRIVER_HEADER[p]}"')
+        L.append(f'#include "{s.profile.driver_header[p]}"')
     if s.models:
         L.append('#include "Rte.h"')
     L.append("")
@@ -56,12 +55,12 @@ def emit_os_gen_h(s):
                 L.append(f"    PORT{port} |= (uint8_t)(1u << {bit});"
                          "  /* pull-up */")
     for p in sorted(s.peripherals):
-        if p in DRIVER_INIT:
-            L.append(f"    {DRIVER_INIT[p]}")
+        if p in s.profile.driver_init:
+            L.append(f"    {s.profile.driver_init[p]}")
     if s.models:
         L.append("    Rte_Init();  /* BSW init for bound ports + ASW init */")
     if (not s.gpio and not s.models
-            and not any(p in DRIVER_INIT for p in s.peripherals)):
+            and not any(p in s.profile.driver_init for p in s.peripherals)):
         L.append("    /* no gpio or auto-init drivers configured */")
     L.append("}")
     L.append("")

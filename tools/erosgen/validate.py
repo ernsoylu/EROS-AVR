@@ -14,7 +14,7 @@ import difflib
 ALLOWED_KEYS = {
     "doc":        {"system", "sources", "peripherals", "tasks",
                    "resources", "pool", "gpio", "simulink", "models"},
-    "system":     {"name", "kernel_dir", "drivers_dir", "tick_hz",
+    "system":     {"name", "mcu", "kernel_dir", "drivers_dir", "tick_hz",
                    "alarm_max_offset", "stack", "hooks", "budget"},
     "stack":      {"canary", "guard_bytes", "paint_margin"},
     "hooks":      {"startup", "error", "shutdown"},
@@ -58,26 +58,17 @@ def is_pow2(n):
     return n >= 1 and (n & (n - 1)) == 0
 
 
-# Arduino Nano silk -> ATmega328P port pin. Accept either form in YAML.
-NANO_ALIASES = {}
-for _d, _pp in {0: "PD0", 1: "PD1", 2: "PD2", 3: "PD3", 4: "PD4",
-                5: "PD5", 6: "PD6", 7: "PD7", 8: "PB0", 9: "PB1",
-                10: "PB2", 11: "PB3", 12: "PB4", 13: "PB5"}.items():
-    NANO_ALIASES[f"D{_d}"] = _pp
-for _a in range(6):  # A0..A5 double as PC0..PC5; A6/A7 are ADC-only
-    NANO_ALIASES[f"A{_a}"] = f"PC{_a}"
-
-
-def normalize_pin(name, sink):
-    """Return a canonical PORTxBIT pin name (e.g. 'PB5') from either an AVR name
-    or an Arduino Nano alias ('D13', 'A4'). Returns None (collect mode) after an
-    unrecognized pin; in strict mode sink.error raises before returning."""
+def normalize_pin(name, profile, sink):
+    """Return a canonical PORTxBIT pin name (e.g. 'PB5') from an AVR name or a
+    board alias ('D13', 'A4'), using the MCU profile's aliases + valid ports.
+    Returns None (collect mode) after an unrecognized pin; in strict mode
+    sink.error raises before returning."""
     p = str(name).upper()
-    if p in NANO_ALIASES:
-        return NANO_ALIASES[p]
-    if (len(p) == 3 and p[0] == "P" and p[1] in "BCD" and p[2].isdigit()):
+    if p in profile.aliases:
+        return profile.aliases[p]
+    if (len(p) == 3 and p[0] == "P" and p[1] in profile.ports and p[2].isdigit()):
         return p
     sink.error("UNKNOWN_PIN",
-               f"unknown pin '{name}' (use PB0..PD7 or Nano D0..D13 / A0..A5)",
-               "gpio")
+               f"unknown pin '{name}' (use a PXn on ports {profile.ports} "
+               "or a board alias)", "gpio")
     return None

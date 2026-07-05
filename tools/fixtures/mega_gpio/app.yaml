@@ -1,0 +1,20 @@
+# Proves the MCU abstraction: mcu: atmega2560 drives valid ports (PORTL exists),
+# board aliases (Mega D13 -> PB7, not the Nano's PB5), and the toolchain
+# (atmega2560 / avrdude m2560 / wiring). Generation-only: the EROS kernel and
+# drivers are still 328P, so this is golden-tested, not built.
+system:
+  name: mega
+  mcu: atmega2560
+  kernel_dir: ../../../kernel
+  hooks: { startup: true, error: true, shutdown: true }
+
+gpio:
+  - { pin: PL7, dir: out, name: LED }        # port L: 2560-only (rejected on 328P)
+  - { pin: D13, dir: out, name: HEARTBEAT }  # Mega alias -> PB7
+
+tasks:
+  - { name: init,  autostart: true, wcet_ms: 1 }
+  - { name: blink, period_ms: 100, wcet_ms: 1 }
+
+resources:
+  - { name: io, users: [blink] }

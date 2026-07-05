@@ -7,6 +7,43 @@
 # =====================================================================
 name: atmega328p
 
+# Valid AVR port letters on this part (DDR<x>/PORT<x>/PIN<x> exist).
+ports: BCD
+
+# Toolchain strings emitted into the Makefile.
+toolchain:
+  mcu: atmega328p
+  f_cpu: 16000000UL
+  avrdude:
+    part: m328p
+    programmer: arduino
+    baud: 57600
+    baud_note: "old-bootloader Nano; Optiboot: 115200"
+
+# Board silk (Arduino Nano) -> ATmega328P port pin. Either form is accepted in
+# the YAML; A0..A5 double as PC0..PC5 (A6/A7 are ADC-only, no port pin).
+aliases:
+  D0: PD0
+  D1: PD1
+  D2: PD2
+  D3: PD3
+  D4: PD4
+  D5: PD5
+  D6: PD6
+  D7: PD7
+  D8: PB0
+  D9: PB1
+  D10: PB2
+  D11: PB3
+  D12: PB4
+  D13: PB5
+  A0: PC0
+  A1: PC1
+  A2: PC2
+  A3: PC3
+  A4: PC4
+  A5: PC5
+
 # Peripheral -> driver source file. Resolution order (in the generator):
 # application directory first, then drivers_dir. Order here is preserved
 # and drives the "did you mean" hint for unknown peripherals.

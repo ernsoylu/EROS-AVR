@@ -8,7 +8,6 @@ import os
 
 from ..constants import GENERATED_BANNER
 from ..errors import fail
-from ..mcu import KNOWN_PERIPHERALS
 from ..paths import ENTRYPOINT
 
 
@@ -16,8 +15,9 @@ def driver_sources(s, app_dir):
     """Resolve peripheral names to source files: app dir wins, then
     drivers_dir (added to VPATH)."""
     local, external = [], []
+    known = s.profile.known_peripherals
     for p in sorted(s.peripherals):
-        fname = KNOWN_PERIPHERALS[p]
+        fname = known[p]
         if (app_dir / fname).exists():
             local.append(fname)
         elif s.drivers_dir and (app_dir / s.drivers_dir / fname).exists():
@@ -40,14 +40,14 @@ def periph_defines(s):
     return defs
 
 
-def model_driver_srcs(m):
+def model_driver_srcs(m, profile):
     """Source files for the drivers a model's ports bind to (adc.c, ...);
     dio binds to raw registers and needs no source."""
     out = []
     ports = m.get("ports", {}) or {}
     for direction in ("in", "out"):
         for pd in ports.get(direction, []) or []:
-            fname = KNOWN_PERIPHERALS.get(pd.get("driver"))
+            fname = profile.known_peripherals.get(pd.get("driver"))
             if fname and fname not in out:
                 out.append(fname)
     return out
@@ -96,7 +96,7 @@ def emit_makefile(s, app_dir):
         incs.append("-I$(MODEL_DIR)")
         if "Rte.c" not in app_srcs:
             app_srcs.append("Rte.c")
-        for fname in model_driver_srcs(m):
+        for fname in model_driver_srcs(m, s.profile):
             if fname not in ext_drv:
                 ext_drv.append(fname)
         if ext_drv and s.drivers_dir not in vpath:
@@ -121,8 +121,8 @@ def emit_makefile(s, app_dir):
     L.append("# selected in the YAML are compiled; everything else costs 0 bytes.")
     L.append("# =====================================================================")
     L.append("")
-    L.append("MCU     := atmega328p")
-    L.append("F_CPU   := 16000000UL")
+    L.append(f"MCU     := {s.profile.mcu_gcc}")
+    L.append(f"F_CPU   := {s.profile.f_cpu}")
     L.append(f"TARGET  := {s.name}")
     L.append("")
     L.extend(model_block)
@@ -142,7 +142,8 @@ def emit_makefile(s, app_dir):
     L.append("AVRDUDE := avrdude")
     L.append("")
     L.append("PORT    ?= /dev/ttyUSB0")
-    L.append("BAUD    ?= 57600          # old-bootloader Nano; Optiboot: 115200")
+    L.append(f"BAUD    ?= {s.profile.avrdude_baud}          "
+             f"# {s.profile.avrdude_baud_note}")
     L.append("")
     if defs:
         L.append("# Peripheral geometry from app.yaml (overrides driver defaults)")
@@ -230,7 +231,8 @@ def emit_makefile(s, app_dir):
         L.append("\t  }'")
         L.append("")
     L.append("flash: $(TARGET).hex")
-    L.append("\t$(AVRDUDE) -v -p m328p -c arduino -P $(PORT) -b $(BAUD) \\")
+    L.append(f"\t$(AVRDUDE) -v -p {s.profile.avrdude_part} "
+             f"-c {s.profile.avrdude_programmer} -P $(PORT) -b $(BAUD) \\")
     L.append("\t           -U flash:w:$(TARGET).hex:i")
     L.append("")
     erosgen_rel = os.path.relpath(ENTRYPOINT, str(app_dir))

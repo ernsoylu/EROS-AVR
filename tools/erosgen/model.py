@@ -17,7 +17,7 @@ import math
 
 from .constants import MAIN_C
 from .diagnostics import Diagnostic, Diagnostics
-from .mcu import CONFLICTS_HARD, KNOWN_PERIPHERALS, PERIPHERAL_PINS
+from .mcu import load_profile
 from .validate import check_keys, is_pow2, normalize_pin
 
 
@@ -98,6 +98,15 @@ class System:
         if not check_keys(sysd, "system", "system", sink):
             sysd = {}
         self.name = sysd.get("name", "app")
+        # MCU profile (mcu/<name>.yaml) - the target-specific facts the emitters
+        # read. Defaults to atmega328p; an unknown target is reported but falls
+        # back so the rest of validation can still run.
+        self.mcu = sysd.get("mcu", "atmega328p")
+        try:
+            self.profile = load_profile(self.mcu)
+        except FileNotFoundError as e:
+            sink.error("UNKNOWN_MCU", str(e), "system.mcu")
+            self.profile = load_profile("atmega328p")
         self.kernel_dir = sysd.get("kernel_dir", "../kernel")
         self.drivers_dir = sysd.get("drivers_dir")
         # The kernel's Timer2 tick is hardware-fixed at 1 kHz (register
@@ -215,15 +224,15 @@ class System:
             sink.error("BAD_MAPPING", "peripherals: expected a mapping",
                        "peripherals")
             self.peripherals = {}
+        known = self.profile.known_peripherals
         for p in self.peripherals:
-            if p not in KNOWN_PERIPHERALS:
-                hint = difflib.get_close_matches(str(p),
-                                                 KNOWN_PERIPHERALS, n=1)
+            if p not in known:
+                hint = difflib.get_close_matches(str(p), known, n=1)
                 extra = (f" (did you mean '{hint[0]}'?)" if hint else
-                         f" (known: {', '.join(sorted(KNOWN_PERIPHERALS))})")
+                         f" (known: {', '.join(sorted(known))})")
                 sink.error("UNKNOWN_PERIPHERAL", f"unknown peripheral '{p}'{extra}",
                            f"peripherals.{p}")
-        for a, b, why in CONFLICTS_HARD:
+        for a, b, why in self.profile.conflicts:
             if a in self.peripherals and b in self.peripherals:
                 sink.error("PERIPHERAL_CONFLICT",
                            f"peripheral conflict: {a} + {b} - {why}", "peripherals")
@@ -303,7 +312,7 @@ class System:
             if "pin" not in e:
                 sink.error("GPIO_NO_PIN", "gpio entry: needs a 'pin'", f"gpio[{i}]")
                 continue
-            pin = normalize_pin(e["pin"], sink)
+            pin = normalize_pin(e["pin"], self.profile, sink)
             if pin is None:
                 continue
             if pin in seen:
@@ -339,7 +348,7 @@ class System:
             owner[pin] = who
 
         for p in self.peripherals:
-            for pin in PERIPHERAL_PINS.get(p, []):
+            for pin in self.profile.peripheral_pins.get(p, []):
                 claim(pin, f"peripheral {p}")
             # ADC channels are only claimed if the app lists them.
             if p == "adc":
