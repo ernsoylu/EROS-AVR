@@ -62,14 +62,21 @@ class MainWindow(QMainWindow):
 
     def _build_menu(self):
         filem = self.menuBar().addMenu("&File")
-        for text, slot in (("&Open…", self.open_project),
+        for text, slot in (("&New Project…", self.new_project),
+                           ("&Open…", self.open_project),
                            ("&Save", self.save_project),
+                           ("Save &As…", self.save_as),
                            ("&Generate", self.generate),
                            ("&Build", self.build)):
-            act = filem.addAction(text)
-            act.triggered.connect(slot)
+            filem.addAction(text).triggered.connect(slot)
         filem.addSeparator()
         filem.addAction("E&xit").triggered.connect(self.close)
+
+        editm = self.menuBar().addMenu("&Edit")
+        editm.addAction("Add &Task…").triggered.connect(self.add_task_dialog)
+        editm.addAction("&Remove Selected Task").triggered.connect(
+            self.remove_selected_task)
+
         self.menuBar().addMenu("&Help").addAction("&About").triggered.connect(
             self.about)
 
@@ -132,7 +139,9 @@ class MainWindow(QMainWindow):
         self.tree.expandAll()
 
     def _populate_diagnostics(self):
-        diags = self.project.diagnostics() if self.project.path else []
+        # gate on the doc (not the path) so a new, unsaved project shows its
+        # diagnostics live too.
+        diags = self.project.diagnostics() if self.project.doc else []
         self.diag.setRowCount(len(diags))
         for row, d in enumerate(diags):
             for col, val in enumerate((d.severity, d.code, d.location,
@@ -156,10 +165,49 @@ class MainWindow(QMainWindow):
         if self.project.path:
             self.project.save()
             self.console.appendPlainText(f"saved {self.project.path}")
+        else:
+            self.save_as()
+
+    def new_project(self):
+        from PySide6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "New Project", "Project name:",
+                                        text="app")
+        if ok and name:
+            self.project.new(name, self.mcu_combo.currentText() or "atmega328p")
+            self.console.appendPlainText(f"new project '{name}' (unsaved — "
+                                         "edit, then File → Save As)")
+            self.refresh()
+
+    def save_as(self):
+        fn, _ = QFileDialog.getSaveFileName(self, "Save app.yaml", "app.yaml",
+                                            "YAML (*.yaml *.yml)")
+        if fn:
+            self.project.save(fn)
+            self.console.appendPlainText(f"saved {fn}")
+            self.refresh()
+
+    def add_task_dialog(self):
+        from PySide6.QtWidgets import QInputDialog
+        spec, ok = QInputDialog.getText(
+            self, "Add Task",
+            "name, period_ms (blank = aperiodic), wcet_ms:", text="ctrl, 10, 1")
+        if ok and spec.strip():
+            parts = [p.strip() for p in spec.split(",")]
+            period = int(parts[1]) if len(parts) > 1 and parts[1] else None
+            wcet = int(parts[2]) if len(parts) > 2 and parts[2] else 1
+            self.project.add_task(parts[0], period, wcet)
+            self.refresh()
+
+    def remove_selected_task(self):
+        it = self.tree.currentItem()
+        if it and it.parent() and it.parent().text(0) == "Tasks":
+            self.project.remove_task(it.text(0))
+            self.refresh()
 
     def generate(self):
         if not self.project.path:
-            QMessageBox.warning(self, "Generate", "Open a project first.")
+            self.save_as()  # a new project must be saved before generating
+        if not self.project.path:
             return
         ok, report = self.project.generate()
         self.console.appendPlainText(report.rstrip())

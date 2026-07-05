@@ -69,6 +69,32 @@ def test_mainwindow_smoke():
     w.close()
 
 
+def test_projectmodel_new_and_edit(tmp_path):
+    p = ProjectModel()
+    p.new("blinky", "atmega2560")
+    assert p.name == "blinky" and p.mcu == "atmega2560"
+    assert {t["name"] for t in p.tasks()} == {"init", "main"}
+    assert [d for d in p.diagnostics() if d.severity == "error"] == []
+    p.add_task("fast", period_ms=5, wcet_ms=1)
+    assert "fast" in {t["name"] for t in p.tasks()}
+    p.remove_task("main")
+    assert "main" not in {t["name"] for t in p.tasks()}
+    dst = tmp_path / "app.yaml"
+    p.save(dst)                       # new project persists and reloads
+    assert ProjectModel(dst).name == "blinky"
+
+
+def test_mainwindow_new_project():
+    from gui.main_window import MainWindow
+    _app()
+    w = MainWindow(ProjectModel())    # start empty (no project)
+    w.project.new("demo", "atmega328p")
+    w.refresh()
+    assert w.tree.topLevelItemCount() == 4   # System, Tasks, Models, Memory
+    assert w.diag.rowCount() == 0            # the skeleton is valid -> no problems
+    w.close()
+
+
 def test_mainwindow_mcu_combo_live():
     from gui.main_window import MainWindow
     _app()

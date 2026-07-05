@@ -122,6 +122,38 @@ class ProjectModel:
             "sram_total": int(b.get("sram_total", 2048)),
         }
 
+    # ---- new project + editing -----------------------------------------
+    def new(self, name="app", mcu="atmega328p"):
+        """Start a fresh, unsaved project from a minimal valid skeleton."""
+        self.path = None
+        self.doc = {
+            "system": {"name": name, "mcu": mcu,
+                       "hooks": {"startup": True, "error": True,
+                                 "shutdown": True}},
+            "tasks": [
+                {"name": "init", "autostart": True, "wcet_ms": 1},
+                {"name": "main", "period_ms": 100, "wcet_ms": 1},
+            ],
+            "resources": [{"name": "app", "users": ["main"]}],
+        }
+
+    def set_name(self, name):
+        self.doc.setdefault("system", {})["name"] = name
+
+    def add_task(self, name, period_ms=None, wcet_ms=1, autostart=False):
+        t = {"name": name, "wcet_ms": int(wcet_ms)}
+        if autostart:
+            t["autostart"] = True
+        elif period_ms is not None:
+            t["period_ms"] = int(period_ms)
+        self.doc.setdefault("tasks", []).append(t)
+
+    def remove_task(self, name):
+        tasks = self.doc.get("tasks")
+        if isinstance(tasks, list):
+            self.doc["tasks"] = [t for t in tasks if not (
+                isinstance(t, dict) and t.get("name") == name)]
+
     def generate(self):
         """Save, then run the generator. Returns (ok, report_text)."""
         if self.path is None:
