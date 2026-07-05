@@ -100,10 +100,12 @@ class Diagnostic:
 ### Phase 1 — RTE + model parsing, headless (highest value/effort)
 - [x] `parse/ert.py` — signals (`IN_`/`OUT_`, ctype, dim) + calibrations (extern/define) + entry points, dependency-free regex on the ExportToFile surface. Tested vs the real `codegen/appKnbSwt_ert_rtw/`.
 - [x] `bind.py` — `DriverSpec` (adc/dio/pwm) + `check_binding()` (direction, required keys, value-range fit) via the sink: `TYPE_TOO_NARROW`, `DRIVER_DIRECTION`, `RANGE_TRUNCATION`, ...
-- [x] `models.py` + `emit/rte.py` — resolve an `app.yaml models:` block (parse ERT × bind ports) → `Rte_Cfg.h` + `Rte.c` for adc(in)/dio(in,out), mirroring the hand-written `rte/` template. Golden-tested via `fixtures/model_rte/` (bindings resolve type-clean; output structurally identical to the hand-written `rte/Rte.c`). 14/14 tests.
-- **Deferred (follow-ups):** cli auto-emit of the RTE when `models:` present; `config.c` `TASK_/ALARM_<model>` auto-wiring for the runnable; `codeInfo.mat` cross-check (scaling/dims) behind the `[mat]` extra; pwm emit adapter; compile/run gate is **CI's job** (no local AVR toolchain).
+- [x] `models.py` + `emit/rte.py` — resolve an `app.yaml models:` block (parse ERT × bind ports) → `Rte_Cfg.h` + `Rte.c` for adc(in)/dio(in,out), mirroring the hand-written `rte/` template. Golden-tested via `fixtures/model_rte/`.
+- [x] **End-to-end**: `erosgen app.yaml` with `models:` emits `Rte.h/Rte_Cfg.h/Rte.c` next to `config.*`, synthesizes the model as a periodic OS task (`TASK_/ALARM_<model>`), and the Makefile builds `Rte.c` + model sources + bound drivers. os_gen calls `Rte_Init`; the alarm activates `Task_<model>` (Rte_Run + TerminateTask, which also satisfies the watchdog). Full app pinned by `fixtures/model_app/` golden (15/15); **new CI job regenerates (no-drift) + builds it `-Werror`**.
+- **Verified locally:** generation, goldens, zero drift (reference-demo/genmain/model_rte), Python tests, runtime logic trace, `-Werror` cleanliness by inspection. **NOT verified locally:** the avr-gcc compile itself (no local toolchain) — the new CI gate is the proof; must push to run it.
+- **Deferred follow-ups:** `codeInfo.mat` cross-check (scaling/dims) behind `[mat]`; pwm emit adapter; multi-model RTE; per-signal `static inline` accessors.
 
-**Phase 1 core complete** (parse → bind → emit RTE). Remaining Phase-1 items are the deferred follow-ups above.
+**Phase 1 complete end-to-end** (parse → bind → emit → schedule → build).
 
 ### Phase 2 — MCU breadth
 - [ ] `mcu/atmega2560.yaml` (same avr backend) to prove the abstraction on a same-family target
