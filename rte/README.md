@@ -65,12 +65,12 @@ regeneration renames a port, param, or the runnable (as happened when
 its job. Freeze the interface names (the ICD) and the RTE is stable too.
 Nothing below the RTE ever moves.
 
-## Generating the RTE (future — `erosgen.py`)
+## Generating the RTE (`erosgen.py`) — implemented
 
-`Rte_Cfg.h` is deliberately pure configuration so `tools/erosgen.py` can
-emit it — and the `Rte.c` adapters and the `config.c` task/alarm entries
-— from an `app.yaml` `models:` section, exactly as it already generates
-the `Makefile` / `config.h` / `config.c` today. Proposed schema:
+`Rte_Cfg.h` is pure configuration, so `tools/erosgen.py` **generates the whole
+RTE** — `Rte.h`, `Rte_Cfg.h`, and the `Rte.c` adapters — plus the `config.*`
+task/alarm entries, from an `app.yaml` `models:` section, exactly as it
+generates the `Makefile` / `config.h` / `config.c`. Schema:
 
 ```yaml
 models:
@@ -93,14 +93,25 @@ models:
     # (ImportFromFile). appKnbSwt exports them, so none here.
 ```
 
-From this one block erosgen would generate: `Rte_Cfg.h` (the tables
-above), the `Rte_Read_*/Rte_Write_*` adapter calls per port, and the
-`TASK_APPKNBSWT` / `ALARM_APPKNBSWT` entries in `config.c` — so a model is
-integrated by editing `app.yaml` and re-running the generator, with the
-hand-written surface dropping to zero. The current hand-written RTE is
-shaped as exactly that template so wiring it into erosgen is a fill-in,
-not a redesign. (This generation step is not implemented yet — the RTE is
-hand-written for now.)
+From this one block, `erosgen` generates `Rte.h` / `Rte_Cfg.h` / `Rte.c` (the
+per-port `Rte_Read_*/Rte_Write_*` adapters, `Rte_Init`, and a `Task_<model>`
+body that runs the runnable and `TerminateTask()`s), and wires the model as
+`TASK_<MODEL>` / `ALARM_<MODEL>` in `config.*` with the RTE + model sources +
+bound drivers added to the Makefile — so a model is integrated by editing
+`app.yaml` and running `python3 tools/erosgen.py app.yaml`. `parse/ert.py`
+identifies the exported signals, `bind.py` type-checks each port against its
+driver, `emit/rte.py` emits the C.
+
+```sh
+python3 tools/erosgen.py tools/fixtures/model_app/app.yaml   # a complete app
+```
+
+The one-model-per-app case is supported today (single RTE); the hand-written
+`rte/` here stays as the worked reference and the simavr test's fixture. Its
+CI gate compiles a generated `model_app` firmware with `avr-gcc -Werror`.
+Calibration assignment (`ImportFromFile` SWCs) and multi-model apps are not
+generated yet. The GUI (`gui/`) exposes this via a **Model** menu — add a
+codegen model and bind its ports to peripherals interactively.
 
 ## Tuning (calibration)
 
