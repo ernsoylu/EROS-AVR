@@ -21,7 +21,7 @@
  *           [--adc-sweep CH:HI:LO:HALF_MS]
  *                                   triangle ramp: HI->LO over HALF_MS,
  *                                   then LO->HI over HALF_MS, then hold HI
- *           [--spi-echo]            SPI slave returns the byte just sent
+ *           [--spi-slave HEX]       SPI slave returns constant byte HEX
  *           [--pin P,BIT,US,LVL]... drive PORTx pin BIT to LVL at +US us
  *           [--watch-pin P,BIT]     log transitions of output pin P,BIT
  */
@@ -77,17 +77,23 @@ static void uart_out_cb(struct avr_irq_t *irq, uint32_t value, void *param)
     }
 }
 
-/* --- SPI slave: echo the byte the master just clocked out ---------- */
+/* --- SPI slave: return a fixed byte on MISO ------------------------ */
+/* simavr latches the received byte from the SPI INPUT irq at the START
+ * of a transfer, before this OUTPUT hook runs - so an "echo the byte
+ * just sent" slave would deliver each byte one transfer late. A constant
+ * slave (pre-seeded before the run, then re-asserted after every byte)
+ * is delivered on the same transfer and is deterministic. */
 
 static avr_t *g_avr = NULL;
 
-static void spi_echo_cb(struct avr_irq_t *irq, uint32_t value, void *param)
+struct spi_slave { int active; uint8_t byte; };
+static struct spi_slave g_spi = { 0, 0 };
+
+static void spi_slave_cb(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-    (void)irq; (void)param;
-    /* Feed the same byte back as the slave's response so the master's
-     * SPI_Transfer() sees a known, deterministic MISO stream. */
+    (void)irq; (void)value; (void)param;
     avr_raise_irq(avr_io_getirq(g_avr, AVR_IOCTL_SPI_GETIRQ('0'),
-                                SPI_IRQ_INPUT), value & 0xFF);
+                                SPI_IRQ_INPUT), g_spi.byte);
 }
 
 /* --- Scheduled GPIO edge ------------------------------------------- */
@@ -226,12 +232,21 @@ static void parse_watch(const char *s)
     }
 }
 
+static void parse_spi_slave(const char *s)
+{
+    unsigned byte;
+    if (sscanf(s, "%x", &byte) == 1)
+    {
+        g_spi.byte   = (uint8_t)byte;
+        g_spi.active = 1;
+    }
+}
+
 struct opts {
     const char *fname;
     const char *mcu;
     uint32_t    freq;
     uint32_t    timeout;   /* ms of simulated time */
-    int         spi_echo;
 };
 
 static void parse_args(int argc, char **argv, struct opts *o)
@@ -242,7 +257,6 @@ static void parse_args(int argc, char **argv, struct opts *o)
 
         /* Flags and the positional ELF name need no following token. */
         if (a[0] != '-')                     o->fname = a;
-        else if (!strcmp(a, "--spi-echo"))   o->spi_echo = 1;
         else if (!strcmp(a, "--echo"))       g_echo = 1;
         else if (i + 1 >= argc)              continue;   /* rest take a value */
         else if (!strcmp(a, "--timeout-ms")) o->timeout = (uint32_t)strtoul(argv[++i], NULL, 0);
@@ -252,12 +266,13 @@ static void parse_args(int argc, char **argv, struct opts *o)
         else if (!strcmp(a, "--pin"))        parse_pin(argv[++i]);
         else if (!strcmp(a, "--adc-sweep"))  parse_sweep(argv[++i]);
         else if (!strcmp(a, "--watch-pin"))  parse_watch(argv[++i]);
+        else if (!strcmp(a, "--spi-slave"))  parse_spi_slave(argv[++i]);
     }
 }
 
 int main(int argc, char **argv)
 {
-    struct opts o = { NULL, "atmega328p", 16000000u, 2000u, 0 };
+    struct opts o = { NULL, "atmega328p", 16000000u, 2000u };
 
     parse_args(argc, argv, &o);
 
@@ -287,10 +302,16 @@ int main(int argc, char **argv)
      * transmitted byte to it, so no flow-control flag tweaking is needed
      * for our small, promptly-drained bursts. */
 
-    if (o.spi_echo)
+    if (g_spi.active)
+    {
+        /* Seed the MISO byte for the first transfer, then re-assert it
+         * after each byte so every transfer returns the same value. */
+        avr_raise_irq(avr_io_getirq(avr, AVR_IOCTL_SPI_GETIRQ('0'),
+                                    SPI_IRQ_INPUT), g_spi.byte);
         avr_irq_register_notify(
             avr_io_getirq(avr, AVR_IOCTL_SPI_GETIRQ('0'), SPI_IRQ_OUTPUT),
-            spi_echo_cb, NULL);
+            spi_slave_cb, NULL);
+    }
 
     for (int i = 0; i < g_nadc; i++)
         avr_raise_irq(avr_io_getirq(avr, AVR_IOCTL_ADC_GETIRQ,
