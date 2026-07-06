@@ -38,6 +38,17 @@ def periph_defines(s):
         defs.append(f"-DUART_BAUD={int(uart.get('baud', 9600))}UL")
         defs.append(f"-DUART_TX_SIZE={int(uart.get('tx_ring', UART_TX_RING_DEFAULT))}u")
         defs.append(f"-DUART_RX_SIZE={int(uart.get('rx_ring', UART_RX_RING_DEFAULT))}u")
+    # PWM frequency: erosgen picks the Timer1 prescaler + TOP and passes them as
+    # -D overrides; pwm.c keeps its 1 kHz defaults when freq_hz is unset, so a
+    # project that just activates pwm (or the reference demo) is byte-identical.
+    pwm = s.peripherals.get("pwm")
+    if isinstance(pwm, dict) and pwm.get("freq_hz") is not None:
+        from ..pwmcfg import pwm_config
+        cfg = pwm_config(s.profile, int(pwm["freq_hz"]))
+        if cfg is not None:
+            cs, top, _ = cfg
+            defs.append(f"-DPWM_TOP={top}u")
+            defs.append(f"-DPWM_CS={cs}u")
     return defs
 
 

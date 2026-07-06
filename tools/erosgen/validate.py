@@ -32,6 +32,7 @@ ALLOWED_KEYS = {
     "gpio":       {"pin", "dir", "pullup", "name", "init"},
     "simulink":   {"model", "dir", "rate_map"},
     "uart":       {"baud", "tx_ring", "rx_ring"},
+    "pwm":        {"freq_hz"},   # Timer1 fast-PWM; erosgen picks prescaler + TOP
     # RTE generation from a Simulink SWC (see rte/README.md, models: schema).
     "model":      {"name", "codegen_dir", "init", "runnable", "rate_ms",
                    "wcet_ms", "ports", "order"},

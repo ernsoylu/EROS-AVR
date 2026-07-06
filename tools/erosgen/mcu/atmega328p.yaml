@@ -11,6 +11,16 @@ board: Arduino Nano          # friendly board name shown in the GUI board picker
 # Valid AVR port letters on this part (DDR<x>/PORT<x>/PIN<x> exist).
 ports: BCD
 
+# Hardware timers on this part (the count/kind is MCU-specific). `tick: true`
+# marks the one EROS uses for the kernel tick - reserved, never a PWM option.
+# `pwm:` names the driver that generates PWM off this timer. `prescalers` is
+# the ordered CSn list (index+1 == the CSn2:0 register value). `width` is the
+# counter width in bits (TOP max = 2^width - 1 -> duty resolution).
+timers:
+  timer0: { width: 8,  prescalers: [1, 8, 64, 256, 1024], pwm: timer0_pwm }
+  timer1: { width: 16, prescalers: [1, 8, 64, 256, 1024], pwm: pwm }
+  timer2: { width: 8,  prescalers: [1, 8, 32, 64, 128, 256, 1024], tick: true }
+
 # Toolchain strings emitted into the Makefile.
 toolchain:
   mcu: atmega328p

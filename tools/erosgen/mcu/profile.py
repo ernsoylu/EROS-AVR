@@ -52,6 +52,7 @@ class MCUProfile:
     name: str
     board: str                # friendly board name, e.g. "Arduino Uno"
     ports: str                # valid AVR port letters, e.g. "BCD"
+    timers: dict              # timer name -> {width, prescalers, pwm?, tick?}
     aliases: dict             # board silk -> AVR pin, e.g. {"D13": "PB5"}
     mcu_gcc: str              # -mmcu value, e.g. "atmega328p"
     f_cpu: str                # F_CPU macro value, e.g. "16000000UL"
@@ -74,6 +75,7 @@ class MCUProfile:
             name=d.get("name", name),
             board=str(d.get("board", d.get("name", name))),
             ports=str(d.get("ports", "")),
+            timers={k: dict(v) for k, v in (d.get("timers") or {}).items()},
             aliases=dict(d.get("aliases", {})),
             mcu_gcc=tc.get("mcu", d.get("name", name)),
             f_cpu=str(tc.get("f_cpu", "16000000UL")),

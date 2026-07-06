@@ -273,6 +273,24 @@ class System:
                                f"uart {ring} must be a power of two, 2..256",
                                "peripherals.uart")
 
+        pwm = self.peripherals.get("pwm") or {}
+        if isinstance(pwm, dict) and pwm:
+            check_keys(pwm, "pwm", "peripherals.pwm", sink)
+        if pwm.get("freq_hz") is not None:
+            from .pwmcfg import pwm_config, pwm_timer
+            want = int(pwm["freq_hz"])
+            timer = pwm_timer(self.profile)
+            cfg = pwm_config(self.profile, want)
+            if cfg is None:
+                tname = timer[0] if timer else "PWM timer"
+                sink.error("PWM_FREQ_RANGE",
+                           f"pwm freq_hz {want} Hz is outside {tname}'s range at "
+                           f"this F_CPU", "peripherals.pwm")
+            elif abs(cfg[2] - want) > max(1.0, want * 0.01):
+                sink.warning("PWM_FREQ_ROUND",
+                             f"pwm freq_hz {want} Hz rounds to the nearest "
+                             f"achievable {cfg[2]:.1f} Hz", "peripherals.pwm")
+
         # ---- gpio + pin ownership matrix --------------------------------
         self.gpio = self._parse_gpio(doc.get("gpio", []) or [], sink)
         self._check_pins(sink)
