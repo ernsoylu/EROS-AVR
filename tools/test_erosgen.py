@@ -211,6 +211,48 @@ def test_mcu_profile_loads_atmega328p():
         raise AssertionError("expected FileNotFoundError for unknown MCU")
 
 
+def test_arduino_uno_extends_atmega328p():
+    # The Uno is a 328P board: it inherits the whole chip profile via `extends`
+    # and overrides only the flash baud (Optiboot 115200, not the Nano's 57600).
+    from erosgen.mcu import load_profile
+    uno = load_profile("arduino_uno")
+    assert uno.name == "arduino_uno"
+    assert uno.mcu_gcc == "atmega328p"                 # same silicon -> -mmcu
+    assert uno.avrdude_part == "m328p"                 # inherited
+    assert uno.avrdude_programmer == "arduino"         # inherited
+    assert uno.avrdude_baud == 115200                  # overridden
+    # chip facts inherited unchanged from atmega328p
+    assert uno.ports == "BCD"
+    assert uno.aliases["D13"] == "PB5"
+    assert uno.peripheral_pins["spi"] == ["PB2", "PB3", "PB4", "PB5"]
+    # the base profile is untouched (still the old-bootloader default)
+    assert load_profile("atmega328p").avrdude_baud == 57600
+
+
+def test_arduino_uno_makefile_targets_115200():
+    from erosgen import System
+    from erosgen.emit import emit_makefile
+    doc = {"system": {"name": "u", "mcu": "arduino_uno", "kernel_dir": "../kernel"},
+           "tasks": [{"name": "a", "period_ms": 10, "wcet_ms": 1}],
+           "resources": [{"name": "r", "users": ["a"]}]}
+    s = System(doc, Path("app.yaml"))
+    assert s.mcu == "arduino_uno" and s.profile.mcu_gcc == "atmega328p"
+    mk = emit_makefile(s, Path(".").resolve())
+    assert "BAUD    ?= 115200" in mk           # Uno flash baud
+    assert "-p m328p -c arduino" in mk         # 328P part, arduino programmer
+    assert "MCU     := atmega328p" in mk       # still compiles as a 328P
+
+
+def test_profile_extends_cycle_guard():
+    from erosgen.mcu.profile import _resolve
+    try:
+        _resolve("atmega328p", {"atmega328p"})  # already on the resolve stack
+    except ValueError as e:
+        assert "cycle" in str(e)
+    else:
+        raise AssertionError("expected an extends-cycle ValueError")
+
+
 def test_parse_ert_appknbswt():
     from erosgen.parse import parse_model
     mi = parse_model(REPO / "codegen" / "appKnbSwt_ert_rtw", "appKnbSwt")
