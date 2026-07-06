@@ -115,8 +115,9 @@ static uint8_t  os_resStack[OS_NUM_RESOURCES];                  /* 1 B  */
 #define OS_RES_ISR_WAS_ON 0x80u
 #define OS_RES_ID_MASK    0x7Fu
 
-/* Linker-provided first byte after .data/.bss/.noinit (D1). */
-extern uint8_t __heap_start;
+/* Linker-provided start of free RAM after .data/.bss/.noinit; an incomplete
+   array, since it marks the base of a region we walk, not a single byte (D1). */
+extern uint8_t __heap_start[];
 
 /* ================================================================== */
 /* Internal helpers                                                    */
@@ -796,7 +797,7 @@ StatusType OS_MailboxReceive(OsPoolHandleType *handle)
 
 static void os_StackPaint(void)
 {
-    uint8_t *p = &__heap_start;
+    uint8_t *p = __heap_start;
     uint8_t *const limit =
         (uint8_t *)(uint16_t)(SP - (uint16_t)OS_STACK_PAINT_MARGIN); /* D1 */
 
@@ -809,7 +810,7 @@ static void os_StackPaint(void)
 
 static void os_StackCheck(void)
 {
-    const uint8_t *p = &__heap_start;
+    const uint8_t *p = __heap_start;
     uint8_t i;
 
     for (i = 0u; i < (uint8_t)OS_STACK_GUARD_BYTES; i++)
