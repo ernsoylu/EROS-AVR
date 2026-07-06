@@ -121,7 +121,7 @@ def parse_model(codegen_dir, model_name):
             raise FileNotFoundError(
                 f"erosgen: model '{model_name}': expected {p} - is the model "
                 "generated with ExportToFile/Define storage classes? "
-                "(see rte/README.md)")
+                "(see rte/README_ASW.md)")
         return p.read_text()
 
     intfc = read("_Intfc.h")
