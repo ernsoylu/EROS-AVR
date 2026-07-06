@@ -305,11 +305,24 @@ def test_mainwindow_priority_dropdown_interleaves_kinds():
 def test_projectmodel_build_dirs():
     p = ProjectModel()
     p.new("t", "atmega328p")
-    assert p.kernel_dir == "" and p.drivers_dir == ""
-    p.set_dir("drivers_dir", "../drivers")
+    # new() auto-detects the EROS kernel/drivers (running from the repo tree)
+    assert p.kernel_dir.endswith("/kernel") and p.drivers_dir.endswith("/drivers")
+    p.set_dir("drivers_dir", "../drivers")  # still explicitly settable
     assert p.drivers_dir == "../drivers"
     p.set_dir("drivers_dir", "")            # blank clears it
     assert p.drivers_dir == ""
+
+
+def test_projectmodel_detect_dirs():
+    p = ProjectModel()
+    d = p.detect_dirs()
+    assert d, "erosgen runs from the repo, so kernel/drivers are detectable"
+    assert (Path(d["kernel_dir"]) / "eros.h").is_file()
+    assert Path(d["drivers_dir"]).is_dir()
+    # autodetect fills an otherwise-empty project
+    p2 = ProjectModel()
+    assert p2.autodetect_dirs()
+    assert p2.kernel_dir.endswith("/kernel")
 
 
 def test_mainwindow_add_port_preserves_edits():
