@@ -5,6 +5,7 @@
 Covers the pure ProjectModel bridge and an offscreen smoke of MainWindow (it
 constructs, populates the tree, and mirrors the engine's diagnostics).
 """
+import math
 import os
 from pathlib import Path
 
@@ -413,7 +414,7 @@ def test_projectmodel_peripherals_and_pwm():
     assert p.peripheral_active("pwm")
     p.set_peripheral_prop("pwm", "freq_hz", 2000)
     assert p.peripheral_config("pwm")["freq_hz"] == 2000
-    assert p.pwm_achieved(2000)[0] == 2000.0 and p.pwm_achieved(2000)[1] == "timer1"
+    assert math.isclose(p.pwm_achieved(2000)[0], 2000.0) and p.pwm_achieved(2000)[1] == "timer1"
     p.activate_peripheral("pwm", False)
     assert not p.peripheral_active("pwm")
 
@@ -480,7 +481,7 @@ def test_mainwindow_adc_i2c_timer0_pages():
     w._sel = ("peripheral", "timer0_pwm")
     w._show_inspector()
     assert w.inspector.widget().findChild(QSpinBox) is not None
-    assert p.timer0_pwm_achieved(7812) == 7812.5     # /8 at 16 MHz
+    assert math.isclose(p.timer0_pwm_achieved(7812), 7812.5)     # /8 at 16 MHz
     w.close()
 
 
