@@ -22,7 +22,7 @@
  * (Timer2 is the kernel tick and is not an option.)
  *
  * ISRs (capture + overflow) are OSEK Category 1: they only timestamp
- * and set flags - tasks poll ICP_Get().
+ * and set flags - tasks poll Icp_Get().
  */
 
 #ifndef ICP_H
@@ -35,13 +35,13 @@
 
 /** Start Timer1 in normal mode /64 with capture on ICP1/PB0 (input).
  *  Call with interrupts disabled (e.g. from StartupHook()). */
-void ICP_Init(void);
+void Icp_Init(void);
 
 /** Fetch the most recent complete measurement (atomic).
  *  @param periodTicks rising-to-rising distance in 4 us ticks
  *  @param pulseTicks  high time in 4 us ticks
  *  @return 1 = values valid and signal alive, 0 = no signal (none yet,
  *          removed, or slower than the 262 ms range). */
-uint8_t ICP_Get(uint16_t *periodTicks, uint16_t *pulseTicks);
+uint8_t Icp_Get(uint16_t *periodTicks, uint16_t *pulseTicks);
 
 #endif /* ICP_H */

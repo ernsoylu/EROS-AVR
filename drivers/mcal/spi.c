@@ -7,7 +7,7 @@
 
 #include "spi.h"
 
-void SPI_Init(uint8_t mode, uint8_t clock)
+void Spi_Init(uint8_t mode, uint8_t clock)
 {
     /* SS must be a (high) output BEFORE enabling master mode: a low
      * input on SS clears MSTR in hardware (mode-fault protection). */
@@ -20,7 +20,7 @@ void SPI_Init(uint8_t mode, uint8_t clock)
     SPSR = (uint8_t)(((clock & 0x04u) != 0u) ? (1u << SPI2X) : 0u);
 }
 
-uint8_t SPI_Transfer(uint8_t byte)
+uint8_t Spi_Transfer(uint8_t byte)
 {
     SPDR = byte;
     while ((SPSR & (uint8_t)(1u << SPIF)) == 0u)
@@ -30,12 +30,12 @@ uint8_t SPI_Transfer(uint8_t byte)
     return SPDR;
 }
 
-void SPI_TransferBuf(uint8_t *buf, uint8_t len)
+void Spi_TransferBuf(uint8_t *buf, uint8_t len)
 {
     uint8_t i;
 
     for (i = 0u; i < len; i++)
     {
-        buf[i] = SPI_Transfer(buf[i]);
+        buf[i] = Spi_Transfer(buf[i]);
     }
 }

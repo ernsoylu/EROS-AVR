@@ -27,12 +27,12 @@ int main(void)
 
     DDRB &= (uint8_t)~(1u << PB0);   /* ICP1 input */
 
-    ICP_Init();
+    Icp_Init();
     sei();
 
     _delay_ms(6);                    /* let the host pulse train play out */
 
-    alive = ICP_Get(&period, &pulse);
+    alive = Icp_Get(&period, &pulse);
     TK_ASSERT(alive == 1u, "signal-alive");
 
     /* ~900 us period at 4 us/tick = ~225 ticks. */

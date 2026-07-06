@@ -32,12 +32,12 @@
 /** Enable the comparator (positive input vs AIN1/PD7) and start
  *  counting `sense` events. Call with interrupts disabled
  *  (e.g. from StartupHook()). */
-void ACOMP_Init(uint8_t positiveInput, uint8_t sense);
+void Acomp_Init(uint8_t positiveInput, uint8_t sense);
 
 /** Instantaneous comparator output: 1 = V+ above V-. */
-uint8_t ACOMP_Read(void);
+uint8_t Acomp_Read(void);
 
 /** Atomically fetch and clear the event count (saturates at 255). */
-uint8_t ACOMP_FetchEvents(void);
+uint8_t Acomp_FetchEvents(void);
 
 #endif /* ACOMP_H */

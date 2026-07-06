@@ -15,6 +15,8 @@
 MCU     := atmega328p
 F_CPU   := 16000000UL
 
+# MCAL peripheral drivers live under mcal/ (BSW layering, Phase 7).
+VPATH   := mcal
 SRCS    := adc.c eeprom.c i2c.c spi.c extint.c pwm.c timer0_pwm.c icp.c acomp.c
 OBJS    := $(SRCS:.c=.o)
 DEPS    := $(SRCS:.c=.d)
@@ -26,7 +28,7 @@ AR      := avr-gcc-ar
 CFLAGS  := -Wall -Wextra -Werror -std=c99 -Os -flto \
            -ffunction-sections -fdata-sections -fno-common \
            -mmcu=$(MCU) -DF_CPU=$(F_CPU) \
-           -I.
+           -I. -Imcal
 
 .PHONY: all clean
 

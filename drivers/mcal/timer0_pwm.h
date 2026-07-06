@@ -30,12 +30,12 @@
 
 /** Configure Timer0 fast PWM @ 976.6 Hz, both channels duty 0 (pins
  *  low). Call with interrupts disabled (e.g. from StartupHook()). */
-void T0PWM_Init(void);
+void T0Pwm_Init(void);
 
 /** Set duty 0..255 on T0PWM_CH_A or T0PWM_CH_B. */
-void T0PWM_SetDuty(uint8_t channel, uint8_t duty);
+void T0Pwm_SetDuty(uint8_t channel, uint8_t duty);
 
 /** Last commanded duty of the channel. */
-uint8_t T0PWM_GetDuty(uint8_t channel);
+uint8_t T0Pwm_GetDuty(uint8_t channel);
 
 #endif /* TIMER0_PWM_H */

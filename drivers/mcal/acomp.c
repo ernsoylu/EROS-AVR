@@ -11,7 +11,7 @@
 
 static volatile uint8_t acompEvents;
 
-void ACOMP_Init(uint8_t positiveInput, uint8_t sense)
+void Acomp_Init(uint8_t positiveInput, uint8_t sense)
 {
     const uint8_t bandgap =
         (positiveInput == ACOMP_IN_BANDGAP) ? (uint8_t)(1u << ACBG) : 0u;
@@ -23,12 +23,12 @@ void ACOMP_Init(uint8_t positiveInput, uint8_t sense)
     ACSR |= (uint8_t)(1u << ACIE);
 }
 
-uint8_t ACOMP_Read(void)
+uint8_t Acomp_Read(void)
 {
     return ((ACSR & (uint8_t)(1u << ACO)) != 0u) ? 1u : 0u;
 }
 
-uint8_t ACOMP_FetchEvents(void)
+uint8_t Acomp_FetchEvents(void)
 {
     uint8_t count;
 

@@ -204,13 +204,22 @@ with it and are migrated separately, not by a blind repo-wide rename).
       (text 3630 / data 4 / bss 291 unchanged); only the reference-demo Makefile
       golden changed (VPATH + `-I../drivers`, pwm.c local→shared). 63 tests + build
       + budget gates green.
-- [ ] **Remaining standalone drivers** (spi/i2c/eeprom/icp/acomp/timer0) →
-      AUTOSAR names. Lower value (non-RTE, non-demo; only their simavr tests use
-      them); prefix/macro hazards (`SPI_MODE*`, `I2C_SPEED`, `ADC_REF_*`) mean
-      per-function renames. `ExtInt_`/`PcInt_` already conform.
-- [ ] Restructure toward the AUTOSAR topology dirs: MCAL, Services (EcuM-like
-      startup, Dem-like error sink, Com-like IPC over the mailbox+pool),
-      ComplexDeviceDriver (uart/watchdog) — file moves + Makefile path churn.
+- [x] **MCAL naming — standalone drivers** (increment 4): `SPI_*`→`Spi_*`,
+      `I2C_*`→`I2c_*`, `EE_*`→`Eep_*`, `ICP_*`→`Icp_*`, `ACOMP_*`→`Acomp_*`,
+      `T0PWM_*`→`T0Pwm_*`. Per-function `\b` renames kept the config macros
+      (`SPI_MODE*`/`SPI_CLK_DIV*`, `ACOMP_IN_*`, etc.). Driver .c/.h + simavr
+      tests + profile `driver_init` + the configured-SPI builder in `osgen.py`.
+      No golden drift (no fixture/demo declares these peripherals). All 6 test
+      firmwares build; drivers compile gate green. **Every driver is now
+      AUTOSAR-MCAL-named.**
+- [x] **AUTOSAR topology dirs** (increment 5): peripheral drivers moved to
+      `drivers/mcal/`; the `mcal/` subdir is threaded through the MCU profile
+      source-map + the Makefile emitter (`_layer_dir`/`_basename`: source
+      basenames stay flat, the layer dir goes on VPATH + `-I`). Services = the
+      EROS kernel; ComplexDeviceDriver = `reference-demo/uart.c`. Only the
+      Makefile goldens changed (`../drivers` → `../drivers/mcal`); reference-demo
+      image byte-identical (3630/4/291). drivers gate + all simavr firmwares +
+      RTE fixtures build; 63 tests; regen is a git-diff fixed point.
 - [ ] `<Mod>_MainFunction_<rate>ms` scheduling: generator wires a driver's cyclic
       MainFunction to the matching OS task (new codegen capability; no driver has
       a MainFunction yet).

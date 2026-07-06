@@ -11,7 +11,7 @@ TARGET  := knbdemo
 
 MODEL_DIR  := ../../../codegen/appKnbSwt_ert_rtw
 MODEL_SRCS := $(filter-out ert_main.c,$(notdir $(wildcard $(MODEL_DIR)/*.c)))
-VPATH   := ../../../kernel $(MODEL_DIR) ../../../drivers
+VPATH   := ../../../kernel $(MODEL_DIR) ../../../drivers/mcal
 
 APP_SRCS := main.c Rte.c
 SRCS     := $(APP_SRCS) adc.c eros.c config.c $(MODEL_SRCS)
@@ -29,7 +29,7 @@ BAUD    ?= 57600          # old-bootloader Nano; Optiboot: 115200
 CFLAGS  := -Wall -Wextra -Werror -std=c99 -Os -flto \
            -ffunction-sections -fdata-sections -fno-common \
            -mmcu=$(MCU) -DF_CPU=$(F_CPU) \
-           -I. -I../../../kernel -I$(MODEL_DIR) -I../../../drivers
+           -I. -I../../../kernel -I$(MODEL_DIR) -I../../../drivers/mcal
 LDFLAGS := -Wl,--gc-sections -Wl,-Map=$(TARGET).map
 
 .PHONY: all size flash clean config

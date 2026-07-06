@@ -12,7 +12,7 @@ TARGET  := multidemo
 MODEL_DIR1  := ../../../codegen/appKnbSwt_ert_rtw
 MODEL_DIR2  := motor_ert_rtw
 MODEL_SRCS := $(filter-out ert_main.c,$(sort $(notdir $(wildcard $(MODEL_DIR1)/*.c) $(wildcard $(MODEL_DIR2)/*.c))))
-VPATH   := ../../../kernel $(MODEL_DIR1) $(MODEL_DIR2) ../../../drivers
+VPATH   := ../../../kernel $(MODEL_DIR1) $(MODEL_DIR2) ../../../drivers/mcal
 
 APP_SRCS := main.c Rte.c
 SRCS     := $(APP_SRCS) adc.c eros.c config.c $(MODEL_SRCS)
@@ -30,7 +30,7 @@ BAUD    ?= 57600          # old-bootloader Nano; Optiboot: 115200
 CFLAGS  := -Wall -Wextra -Werror -std=c99 -Os -flto \
            -ffunction-sections -fdata-sections -fno-common \
            -mmcu=$(MCU) -DF_CPU=$(F_CPU) \
-           -I. -I../../../kernel -I$(MODEL_DIR1) -I$(MODEL_DIR2) -I../../../drivers
+           -I. -I../../../kernel -I$(MODEL_DIR1) -I$(MODEL_DIR2) -I../../../drivers/mcal
 LDFLAGS := -Wl,--gc-sections -Wl,-Map=$(TARGET).map
 
 .PHONY: all size flash clean config

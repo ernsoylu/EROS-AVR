@@ -19,7 +19,7 @@
  *     #include "testkit.h"
  *     int main(void) {
  *         tk_init();
- *         TK_ASSERT(EE_ReadByte(0) == 0xFF, "ee-erased");
+ *         TK_ASSERT(Eep_ReadByte(0) == 0xFF, "ee-erased");
  *         ... more asserts ...
  *         tk_pass();          // never returns
  *     }

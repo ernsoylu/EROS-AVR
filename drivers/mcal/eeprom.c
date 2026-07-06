@@ -23,12 +23,12 @@ static void EE_WaitReady(void)
     }
 }
 
-uint8_t EE_IsReady(void)
+uint8_t Eep_IsReady(void)
 {
     return ((EECR & (uint8_t)(1u << EEPE)) == 0u) ? 1u : 0u;
 }
 
-uint8_t EE_ReadByte(uint16_t addr)
+uint8_t Eep_ReadByte(uint16_t addr)
 {
     uint8_t value = 0xFFu;
 
@@ -45,21 +45,21 @@ uint8_t EE_ReadByte(uint16_t addr)
     return value;
 }
 
-void EE_Read(uint16_t addr, uint8_t *dst, uint16_t len)
+void Eep_Read(uint16_t addr, uint8_t *dst, uint16_t len)
 {
     uint16_t i;
 
     for (i = 0u; i < len; i++)
     {
-        dst[i] = EE_ReadByte(addr + i);
+        dst[i] = Eep_ReadByte(addr + i);
     }
 }
 
-void EE_UpdateByte(uint16_t addr, uint8_t value)
+void Eep_UpdateByte(uint16_t addr, uint8_t value)
 {
     if (addr < EE_SIZE)
     {
-        if (EE_ReadByte(addr) != value) /* wear-aware: skip identical */
+        if (Eep_ReadByte(addr) != value) /* wear-aware: skip identical */
         {
             EE_WaitReady(); /* redundant after read, kept for clarity */
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
@@ -77,12 +77,12 @@ void EE_UpdateByte(uint16_t addr, uint8_t value)
     }
 }
 
-void EE_Update(uint16_t addr, const uint8_t *src, uint16_t len)
+void Eep_Update(uint16_t addr, const uint8_t *src, uint16_t len)
 {
     uint16_t i;
 
     for (i = 0u; i < len; i++)
     {
-        EE_UpdateByte(addr + i, src[i]);
+        Eep_UpdateByte(addr + i, src[i]);
     }
 }

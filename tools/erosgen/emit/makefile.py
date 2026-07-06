@@ -12,6 +12,18 @@ from ..errors import fail
 from ..paths import ENTRYPOINT
 
 
+def _layer_dir(fname):
+    """The BSW layer subdir of a driver source, '' if flat. 'mcal/adc.c' ->
+    'mcal'; 'uart.c' -> ''."""
+    return fname.rsplit("/", 1)[0] if "/" in fname else ""
+
+
+def _basename(fname):
+    """A driver source's compiled basename: 'mcal/adc.c' -> 'adc.c'. The layer
+    subdir lives on VPATH/-I, so objects stay flat."""
+    return fname.rsplit("/", 1)[1] if "/" in fname else fname
+
+
 def driver_sources(s, app_dir):
     """Resolve peripheral names to source files: app dir wins, then
     drivers_dir (added to VPATH)."""
@@ -128,10 +140,8 @@ def emit_makefile(s, app_dir):
         app_srcs.append("Rte.c")
     vpath = [s.kernel_dir]
     incs = ["-I.", f"-I{s.kernel_dir}"]
-    if ext_drv:
-        d = _drivers_dir_or_fail(s, ext_drv)
-        vpath.append(d)
-        incs.append(f"-I{d}")
+    # External driver VPATH/-I are added once, after every ext_drv is collected
+    # (below), because a driver source may live in a layer subdir (mcal/...).
 
     model_block = []
     if s.simulink:
@@ -175,8 +185,14 @@ def emit_makefile(s, app_dir):
             for fname in model_driver_srcs(m, s.profile):
                 if fname not in ext_drv:
                     ext_drv.append(fname)
-        if ext_drv:
-            d = _drivers_dir_or_fail(s, ext_drv)
+
+    # Resolve the external-driver dirs once. A source may sit in a layer subdir
+    # (drivers/mcal/adc.c -> fname 'mcal/adc.c'); add <drivers_dir>/<subdir> to
+    # VPATH + -I so the basename in SRCS resolves and its header is found.
+    if ext_drv:
+        dd = _drivers_dir_or_fail(s, ext_drv)
+        for sub in sorted({_layer_dir(f) for f in ext_drv}):
+            d = f"{dd}/{sub}" if sub else dd
             if d not in vpath:
                 vpath.append(d)
             if f"-I{d}" not in incs:
@@ -207,7 +223,8 @@ def emit_makefile(s, app_dir):
     L.append(f"VPATH   := {' '.join(vpath)}")
     L.append("")
     L.append(f"APP_SRCS := {' '.join(app_srcs)}")
-    srcs = "$(APP_SRCS) " + " ".join(ext_drv + ["eros.c", "config.c"])
+    srcs = "$(APP_SRCS) " + " ".join([_basename(f) for f in ext_drv]
+                                     + ["eros.c", "config.c"])
     if s.simulink or s.models:
         srcs += " $(MODEL_SRCS)"
     L.append(f"SRCS     := {srcs}")

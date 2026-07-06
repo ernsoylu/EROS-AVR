@@ -19,7 +19,7 @@ def _driver_init_call(s, p):
         if cfg.get("mode") is not None or cfg.get("clock") is not None:
             mode = int(cfg.get("mode", 0))
             clock = int(cfg.get("clock", 16))
-            return f"SPI_Init(SPI_MODE{mode}, SPI_CLK_DIV{clock});"
+            return f"Spi_Init(SPI_MODE{mode}, SPI_CLK_DIV{clock});"
     return s.profile.driver_init[p]
 
 
