@@ -12,6 +12,18 @@ board: Arduino Mega          # friendly board name shown in the GUI board picker
 # The 2560 has PORTA..PORTL (AVR skips port I).
 ports: ABCDEFGHJKL
 
+# The 2560 has six timers (vs the 328P's three): Timer0/2 8-bit, Timer1/3/4/5
+# 16-bit. Timer2 is the EROS tick. Only Timer1 has a ported PWM driver so far;
+# the extra 16-bit timers are declared (so the tool knows they exist) but carry
+# no `pwm:` driver until one is written.
+timers:
+  timer0: { width: 8,  prescalers: [1, 8, 64, 256, 1024] }
+  timer1: { width: 16, prescalers: [1, 8, 64, 256, 1024], pwm: pwm }
+  timer2: { width: 8,  prescalers: [1, 8, 32, 64, 128, 256, 1024], tick: true }
+  timer3: { width: 16, prescalers: [1, 8, 64, 256, 1024] }
+  timer4: { width: 16, prescalers: [1, 8, 64, 256, 1024] }
+  timer5: { width: 16, prescalers: [1, 8, 64, 256, 1024] }
+
 toolchain:
   mcu: atmega2560
   f_cpu: 16000000UL

@@ -839,6 +839,48 @@ def test_asw_asw_connection_diagnostics():
     assert "CONN_ORDER" in {d.code for d in s2.items}
 
 
+# --- Configurable PWM frequency (Timer1) ---------------------------------
+
+def test_pwm_timers_are_mcu_specific():
+    from erosgen.mcu.profile import load_profile
+    from erosgen.pwmcfg import pwm_timer
+    p328, p2560 = load_profile("atmega328p"), load_profile("atmega2560")
+    assert set(p328.timers) == {"timer0", "timer1", "timer2"}      # 328P: 3
+    assert set(p2560.timers) == {"timer0", "timer1", "timer2",     # 2560: 6
+                                 "timer3", "timer4", "timer5"}
+    assert p328.timers["timer2"].get("tick")                       # tick reserved
+    assert pwm_timer(p328)[0] == "timer1"                          # pwm -> Timer1
+
+
+def test_pwm_frequency_defines():
+    from erosgen.emit import periph_defines
+    on = _system("system: { name: t, mcu: atmega328p }\n"
+                 "tasks: [{ name: a, period_ms: 10, wcet_ms: 1 }]\n"
+                 "resources: [{ name: r, users: [a] }]\n"
+                 "peripherals: { pwm: { freq_hz: 2000 } }\n")
+    assert "-DPWM_TOP=7999u" in periph_defines(on)   # 16 MHz /1 /(7999+1) = 2 kHz
+    assert "-DPWM_CS=1u" in periph_defines(on)
+    # activating pwm with no freq_hz emits NO -DPWM (driver keeps its 1 kHz),
+    # so the reference demo stays byte-identical
+    off = _system("system: { name: t, mcu: atmega328p }\n"
+                  "tasks: [{ name: a, period_ms: 10, wcet_ms: 1 }]\n"
+                  "resources: [{ name: r, users: [a] }]\n"
+                  "peripherals: { pwm: {} }\n")
+    assert not [d for d in periph_defines(off) if "PWM" in d]
+
+
+def test_pwm_frequency_diagnostics():
+    def codes(freq):
+        doc = {"system": {"name": "t", "mcu": "atmega328p"},
+               "tasks": [{"name": "a", "period_ms": 10, "wcet_ms": 1}],
+               "resources": [{"name": "r", "users": ["a"]}],
+               "peripherals": {"pwm": {"freq_hz": freq}}}
+        return {d.code for d in erosgen.collect_diagnostics(doc, Path("x"))}
+    assert not {"PWM_FREQ_RANGE", "PWM_FREQ_ROUND"} & codes(2000)   # exact
+    assert "PWM_FREQ_ROUND" in codes(3000000)                       # 3 MHz coarse
+    assert "PWM_FREQ_RANGE" in codes(20000000)                      # unreachable
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

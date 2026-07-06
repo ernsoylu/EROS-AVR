@@ -15,7 +15,7 @@
 MCU     := atmega328p
 F_CPU   := 16000000UL
 
-SRCS    := adc.c eeprom.c i2c.c spi.c extint.c timer0_pwm.c icp.c acomp.c
+SRCS    := adc.c eeprom.c i2c.c spi.c extint.c pwm.c timer0_pwm.c icp.c acomp.c
 OBJS    := $(SRCS:.c=.o)
 DEPS    := $(SRCS:.c=.d)
 
