@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ernsoylu/EROS-AVR/schema/app/v1.json",
+  "title": "EROS erosgen app.yaml (v1)",
+  "description": "The versioned, machine-readable shape contract for an erosgen app.yaml. Captures the STATIC surface only: section key sets (additionalProperties:false), value types, and MCU-independent enums/consts. Cross-field and MCU/F_CPU-dependent rules (pin ownership, schedulability, resource ceilings, pwm/i2c frequency ranges, peripheral availability) stay in the code validators and report through the same Diagnostics sink. The `x-eros-code` annotation names the diagnostic code a violation maps to, reusing the engine's existing code vocabulary.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "system": {"$ref": "#/$defs/system"},
+    "sources": {"type": "array", "items": {"type": "string"}},
+    "peripherals": {"$ref": "#/$defs/peripherals"},
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}},
+    "resources": {"type": "array", "items": {"$ref": "#/$defs/resource"}},
+    "pool": {"$ref": "#/$defs/pool"},
+    "gpio": {"type": "array", "items": {"$ref": "#/$defs/gpio"}},
+    "simulink": {"$ref": "#/$defs/simulink"},
+    "models": {"type": "array", "items": {"$ref": "#/$defs/model"}}
+  },
+  "$defs": {
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "mcu": {"type": "string"},
+        "kernel_dir": {"type": "string"},
+        "drivers_dir": {"type": "string"},
+        "tick_hz": {"const": 1000, "x-eros-code": "TICK_HZ",
+          "description": "Kernel Timer2 is hardware-fixed at 1 kHz."},
+        "alarm_max_offset": {"type": "integer"},
+        "stack": {"$ref": "#/$defs/stack"},
+        "hooks": {"$ref": "#/$defs/hooks"},
+        "budget": {"$ref": "#/$defs/budget"}
+      }
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canary": {"type": "boolean"},
+        "guard_bytes": {"type": "integer"},
+        "paint_margin": {"type": "integer"}
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "startup": {"type": "boolean"},
+        "error": {"type": "boolean"},
+        "shutdown": {"type": "boolean"}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flash": {"type": "integer"},
+        "ram": {"type": "integer"},
+        "sram_total": {"type": "integer"},
+        "image_flash": {"type": "integer"},
+        "image_ram": {"type": "integer"}
+      }
+    },
+    "peripherals": {
+      "type": ["object", "null"],
+      "description": "Peripheral NAMES are MCU-dependent (policed by the profile in code: UNKNOWN_PERIPHERAL), so this is not closed; each known peripheral's parameters are validated by its sub-schema.",
+      "additionalProperties": true,
+      "properties": {
+        "uart": {"$ref": "#/$defs/uart"},
+        "pwm": {"$ref": "#/$defs/pwm"},
+        "spi": {"$ref": "#/$defs/spi"},
+        "adc": {"$ref": "#/$defs/adc"},
+        "i2c": {"$ref": "#/$defs/i2c"},
+        "timer0_pwm": {"$ref": "#/$defs/timer0_pwm"}
+      }
+    },
+    "uart": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "baud": {"type": "integer"},
+        "tx_ring": {"enum": [2, 4, 8, 16, 32, 64, 128, 256],
+          "x-eros-code": "UART_RING"},
+        "rx_ring": {"enum": [2, 4, 8, 16, 32, 64, 128, 256],
+          "x-eros-code": "UART_RING"}
+      }
+    },
+    "pwm": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "freq_hz": {"type": "integer"}
+      }
+    },
+    "spi": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": [0, 1, 2, 3], "x-eros-code": "SPI_MODE"},
+        "clock": {"enum": [2, 4, 8, 16, 32, 64, 128], "x-eros-code": "SPI_CLOCK"}
+      }
+    },
+    "adc": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "reference": {"enum": ["avcc", "internal", "aref"],
+          "x-eros-code": "ADC_REF"},
+        "prescaler": {"enum": [2, 4, 8, 16, 32, 64, 128],
+          "x-eros-code": "ADC_PRESCALER"}
+      }
+    },
+    "i2c": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "speed_hz": {"type": "integer"}
+      }
+    },
+    "timer0_pwm": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "freq_hz": {"type": "integer"}
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "x-eros-code": "TASK_NO_NAME"},
+        "entry": {"type": "string"},
+        "period_ms": {"type": "integer"},
+        "wcet_ms": {"type": "number"},
+        "autostart": {"type": "boolean"},
+        "watchdog": {"type": "boolean"},
+        "runnables": {"type": "array", "items": {"type": "string"}},
+        "runnable": {"type": "string"},
+        "init": {"type": "string"},
+        "ports": {"$ref": "#/$defs/ports"},
+        "calibrations": {"type": "array", "items": {"$ref": "#/$defs/calibration"}},
+        "order": {"type": "integer"}
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "x-eros-code": "RES_NO_NAME"},
+        "users": {"type": "array", "items": {"type": "string"}},
+        "mask_tick_isr": {"type": "boolean"}
+      }
+    },
+    "pool": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "block_size": {"type": "integer", "minimum": 1,
+          "x-eros-code": "POOL_BLOCK_SIZE"},
+        "blocks": {"type": "integer", "minimum": 1, "maximum": 8,
+          "x-eros-code": "POOL_BLOCKS"}
+      }
+    },
+    "gpio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pin"],
+      "properties": {
+        "pin": {"type": ["string", "integer"], "x-eros-code": "GPIO_NO_PIN"},
+        "dir": {"enum": ["in", "out"], "x-eros-code": "GPIO_DIR"},
+        "pullup": {"type": "boolean"},
+        "name": {"type": "string"},
+        "init": {"type": "boolean"}
+      }
+    },
+    "simulink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": {"type": "string"},
+        "dir": {"type": "string"},
+        "rate_map": {"type": "object"}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "x-eros-code": "MODEL_NO_NAME"},
+        "codegen_dir": {"type": "string"},
+        "init": {"type": "string"},
+        "runnable": {"type": "string"},
+        "rate_ms": {"type": "integer"},
+        "wcet_ms": {"type": "number"},
+        "ports": {"$ref": "#/$defs/ports"},
+        "order": {"type": "integer"}
+      }
+    },
+    "ports": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "in": {"type": "array", "items": {"$ref": "#/$defs/port"}},
+        "out": {"type": "array", "items": {"$ref": "#/$defs/port"}}
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signal": {"type": "string"},
+        "driver": {"type": "string"},
+        "channel": {"type": "integer"},
+        "port": {"type": "string"},
+        "bit": {"type": "integer"},
+        "slope": {"type": "number"},
+        "offset": {"type": "number"},
+        "type": {"type": "string"},
+        "description": {"type": "string"},
+        "source": {"type": "string"}
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "type": {"type": "string"},
+        "value": {"type": ["number", "string", "boolean"]},
+        "description": {"type": "string"}
+      }
+    }
+  }
+}

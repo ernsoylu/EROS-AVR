@@ -139,14 +139,29 @@ Validation is code-driven: `validate.ALLOWED_KEYS` (a dict) + hand-coded checks
 emitting string codes (`UNKNOWN_KEY`, `PIN_CONFLICT`, `TICK_HZ`, …). Adding a
 peripheral means editing `validate.py` + `model.py` + an emitter.
 
-- [ ] Externalize the config contract into a versioned JSON Schema (draft
-      2020-12) per `app.yaml` version; validate with `jsonschema` (a `[dev]` or
-      `[schema]` extra — keep core PyYAML-only).
-- [ ] Migrate the existing checks to schema constraints attached to schema paths;
-      the `Diagnostics` sink stays the reporting channel (it was designed for this).
-- [ ] Goal: adding a peripheral = a schema edit, and the GUI renders constraint
-      violations from the same rule set the CLI uses.
-- **Risk:** low, additive; the sink already carries codes + locations.
+- [x] Externalize the config contract into a versioned JSON Schema (draft
+      2020-12): `tools/erosgen/schema/app.schema.json` (`$id` .../app/v1).
+      Validated with `jsonschema` behind the opt-in `[schema]` extra + `erosgen
+      --schema`; **core stays PyYAML-only** (the schema is stdlib-loadable JSON;
+      generation + the dep-free key check need no extra — proven with jsonschema
+      blocked). `--schema` fails rc 1 on a violation (before generating) and rc 2
+      if the extra is missing (never a silent no-op).
+- [x] **Single source of truth:** `validate.ALLOWED_KEYS` is now DERIVED from the
+      schema (`schema.section_keys()`), so the dep-free key check and the full
+      JSON-Schema validation can't drift; `test_allowed_keys_derived_from_schema_
+      matches_contract` pins it. Static value constraints (`tick_hz` const,
+      `spi.mode/clock`, `adc.reference/prescaler`, `uart` rings, `pool`,
+      `gpio.dir`) live in the schema and map to the engine's existing codes via
+      `x-eros-code` at precise dotted locations through the same `Diagnostics` sink.
+- **Scope note:** the schema owns the *static* surface; the ~10 MCU/F_CPU-
+      dependent and cross-field checks (pin ownership, schedulability, ceilings,
+      pwm/i2c ranges, peripheral availability) are not JSON-Schema-expressible and
+      stay in `model.py` (default flow unchanged → no double-reporting). Follow-ups
+      (own increments): wire the schema pass into `collect_diagnostics` so the GUI
+      renders schema violations too (dedupe against code checks), and thin the now-
+      redundant static checks in `model.py` once the schema owns them by default.
+- **Risk:** low, additive; new `schema.py`/`app.schema.json`, `ALLOWED_KEYS`
+      derivation, `--schema` flag. 58 engine + 37 GUI tests, ruff + mypy green.
 
 ### Phase 7 — BSW/MCAL layering
 `drivers/` is flat (`adc/eeprom/i2c/spi/timer0_pwm/…`) with no MCAL/Services

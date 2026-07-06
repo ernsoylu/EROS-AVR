@@ -66,6 +66,9 @@ def _parse_args(argv):
     p.add_argument("app_yaml", help="the application's app.yaml")
     p.add_argument("--check", action="store_true",
                    help="validate + report only, write nothing")
+    p.add_argument("--schema", action="store_true",
+                   help="additionally validate app.yaml against the JSON Schema "
+                        "(schema/app.schema.json); needs the [schema] extra")
     p.add_argument("--version", action="version",
                    version=f"erosgen {__version__}")
     return p.parse_args(argv[1:])
@@ -82,6 +85,19 @@ def main(argv):
 
     try:
         doc = yaml.safe_load(src.read_text())
+        if ns.schema:
+            from .schema import schema_available, validate_schema
+            if not schema_available():
+                print("erosgen: --schema needs the [schema] extra "
+                      "(uv sync --extra schema)")
+                return 2
+            ssink = validate_schema(doc)
+            for d in ssink.items:
+                where = f"  @ {d.location}" if d.location else ""
+                print(f"  {d.severity.upper()}: [{d.code}] {d.message}{where}")
+            if ssink.has_errors:
+                print("erosgen: schema validation failed (--schema)")
+                return 1
         s = System(doc, src)
         outputs = [
             (app_dir / "config.h", emit_config_h(s), True),
