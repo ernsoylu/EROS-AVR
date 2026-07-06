@@ -90,9 +90,25 @@ class MainWindow(QMainWindow):
         self.console.setReadOnly(True)
         self.console.setMaximumBlockCount(5000)
 
+        # Pinout: a whole-chip pin map (CubeMX-style) - ports x bits, coloured by
+        # owner with conflicts in red. Read-only; the conflict-aware pickers still
+        # do the editing. Facts come from ProjectModel.pinout() (engine-backed).
+        self.pinout = QTableWidget(0, 8)
+        self.pinout.setHorizontalHeaderLabels([str(b) for b in range(8)])
+        self.pinout.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.pinout.setSelectionMode(QAbstractItemView.NoSelection)
+        self.pin_note = QLabel()
+        self.pin_note.setWordWrap(True)
+        pin_tab = QWidget()
+        pin_l = QVBoxLayout(pin_tab)
+        pin_l.setContentsMargins(0, 0, 0, 0)
+        pin_l.addWidget(self.pinout)
+        pin_l.addWidget(self.pin_note)
+
         self.tabs = QTabWidget()
         self.tabs.addTab(self.diag, "Problems")
         self.tabs.addTab(self.console, "Console")
+        self.tabs.addTab(pin_tab, "Pinout")
 
         outer = QSplitter(Qt.Vertical)
         outer.addWidget(panes)
@@ -139,6 +155,7 @@ class MainWindow(QMainWindow):
     def refresh(self):
         self._populate_tree()
         self._populate_diagnostics()
+        self._populate_pinout()
         self._show_inspector()
         if not self.project.doc:
             title = "(no project)"
@@ -1027,6 +1044,44 @@ class MainWindow(QMainWindow):
         self._defer_refresh()
 
     # ---- bottom: diagnostics + console ----------------------------------
+    _PIN_COLORS = {"conflict": "#d64545", "periph": "#3b73c4",
+                   "gpio": "#2e8b57", "port": "#8a5cc9", "na": "#3a3a3a"}
+
+    def _populate_pinout(self):
+        """Render the whole-chip pin map from ProjectModel.pinout(): ports as
+        rows, bits 0..7 as columns, each cell coloured by owner (conflicts red)."""
+        po = self.project.pinout()
+        ports = po["ports"]
+        self.pinout.setRowCount(len(ports))
+        self.pinout.setVerticalHeaderLabels([f"Port {p}" for p in ports])
+        for r, port in enumerate(ports):
+            for bit in range(8):
+                c = po["cells"][(port, bit)]
+                text = c["aliases"][0] if c["aliases"] else c["pin"]
+                if c["owners"]:
+                    text += "\n" + c["owners"][0] + (" ⚠" if c["conflict"]
+                                                     else "")
+                item = QTableWidgetItem(text)
+                tip = c["pin"] + (f" ({', '.join(c['aliases'])})"
+                                  if c["aliases"] else "")
+                tip += ("\nowners: " + ", ".join(c["owners"]) if c["owners"]
+                        else ("\nfree" if c["usable"] else "\nnot broken out"))
+                item.setToolTip(tip)
+                key = "conflict" if c["conflict"] else c["kind"]
+                col = self._PIN_COLORS.get(key)
+                if col:
+                    item.setBackground(QColor(col))
+                    item.setForeground(QColor("#dddddd" if key == "na"
+                                              else "#ffffff"))
+                self.pinout.setItem(r, bit, item)
+        self.pinout.resizeColumnsToContents()
+        self.pinout.resizeRowsToContents()
+        self.pin_note.setText(
+            "Clock: Timer2 CTC, /64, OCR2A=249 → 16 MHz/64/250 = 1 kHz OS "
+            "tick (fixed — Timer2 is the kernel tick, never repurpose it).  "
+            "Legend: blue=peripheral, green=gpio, purple=port binding, "
+            "red=conflict, grey=not broken out.")
+
     def _populate_diagnostics(self):
         # gate on the doc (not the path) so a new, unsaved project shows its
         # diagnostics live too.

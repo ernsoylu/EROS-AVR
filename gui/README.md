@@ -45,6 +45,12 @@ along the bottom.
   (`PIN_CONFLICT`, `UNKNOWN_MCU`, `TYPE_TOO_NARROW`, `PORT_NO_DRIVER`,
   `HARMONIC`, …); double-click a row to jump to its source location.
 - **Console** tab (bottom) — streams `make` (Generate / Build) via `QProcess`.
+- **Pinout** tab (bottom) — a CubeMX-style whole-chip pin map: ports × bits 0–7,
+  each cell coloured by owner (blue = peripheral, green = gpio, purple = port
+  binding, **red = conflict**, grey = not broken out) with per-pin tooltips, plus
+  the read-only clock note (Timer2 /64, OCR2A=249 → 1 kHz tick). Read-only —
+  editing stays in the conflict-aware pickers; the map is `ProjectModel.pinout()`,
+  so it re-derives live on every edit/retarget.
 - **Menus**
   - **File** — New Project… · Open… · Save · Save As… · Generate · Build · Exit
   - **Edit** — Add Task… · Add **Codegen** Task… · Add **Resource…** · Remove
