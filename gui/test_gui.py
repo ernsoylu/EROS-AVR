@@ -261,6 +261,29 @@ def test_mainwindow_asw_task_page_authors_interface():
     w.close()
 
 
+def test_mainwindow_priority_dropdown_interleaves_kinds():
+    # The within-rate priority dropdown places a hand task above a codegen task
+    # at the same rate (the engine tie-breaks on the `order` it writes).
+    from gui.main_window import MainWindow
+    _app()
+    p = ProjectModel()
+    p.new("demo", "arduino_uno")
+    p.add_task("ctrl", period_ms=100, wcet_ms=1)
+    p.make_asw_task("ctrl")
+    cg = str(REPO / "codegen" / "appKnbSwt_ert_rtw")
+    name, _s, runnable = p.model_signals(cg)
+    p.add_model(name, cg, runnable, rate_ms=100)
+    order0 = [x["name"] for x in p.schedule() if x["period_ms"] == 100]
+    assert order0[0] == "appKnbSwt"        # codegen task most urgent by default
+    w = MainWindow(p)
+    w._sel = ("asw", "ctrl")
+    w._show_inspector()
+    w._set_priority("ctrl", 0)             # dropdown -> position 0 (most urgent)
+    order1 = [x["name"] for x in p.schedule() if x["period_ms"] == 100]
+    assert order1[0] == "ctrl"             # hand task now outranks the codegen one
+    w.close()
+
+
 def test_mainwindow_system_page_mcu_change_rerenders():
     # The MCU dropdown now lives on the System page; changing it re-derives the
     # facts panel and the problem list (the fix for "MCU is not changing").

@@ -568,25 +568,36 @@ class ProjectModel:
                 return True
         return False
 
-    def move_in_rate(self, name, up):
-        """Reorder a declared task among its SAME-RATE peers - the 'arrangeable
-        priority' control. The engine's periodic sort is stable, so list order
-        within a rate *is* the tie-break order; schedule() shows most-urgent
-        first, so `up` (more urgent) moves the task later in the tasks list.
-        Returns True if it moved."""
-        tasks = self.doc.get("tasks")
-        tgt = self._task_entry(name)
-        if not isinstance(tasks, list) or tgt is None:
+    def _runnable_entry(self, name):
+        """The mutable dict for any scheduled runnable - a declared task OR a
+        models: entry (so priority ordering can touch both kinds)."""
+        return self._model_entry(name) or self._task_entry(name)
+
+    def rate_peers(self, name):
+        """Same-rate runnables (tasks AND codegen tasks) in tree order, i.e.
+        most-urgent first - the peer set the priority control arranges."""
+        row = next((r for r in self.schedule() if r["name"] == name), None)
+        if not row or not row["period_ms"]:
+            return []
+        return [r["name"] for r in self.schedule()
+                if r["period_ms"] == row["period_ms"]]
+
+    def set_rate_position(self, name, tree_pos):
+        """Place `name` at `tree_pos` (0 = most urgent) among its same-rate peers,
+        interleaving hand tasks and codegen tasks freely. Writes an explicit
+        `order:` on every peer (higher = more urgent) so the engine's tie-break
+        reproduces the arrangement. Returns True if applied."""
+        peers = self.rate_peers(name)
+        if name not in peers:
             return False
-        period = tgt.get("period_ms")
-        peers = [i for i, t in enumerate(tasks) if isinstance(t, dict)
-                 and t.get("period_ms") == period and not t.get("autostart")]
-        pos = peers.index(tasks.index(tgt))
-        swap = pos + 1 if up else pos - 1        # up => later in list => higher prio
-        if not 0 <= swap < len(peers):
-            return False
-        i, j = peers[pos], peers[swap]
-        tasks[i], tasks[j] = tasks[j], tasks[i]
+        peers.remove(name)
+        tree_pos = max(0, min(len(peers), tree_pos))
+        peers.insert(tree_pos, name)            # desired most-urgent-first order
+        n = len(peers)
+        for i, nm in enumerate(peers):
+            e = self._runnable_entry(nm)
+            if e is not None:
+                e["order"] = n - 1 - i          # top (i=0) => highest order
         return True
 
     # ---- target: chip (MCU) + board -------------------------------------

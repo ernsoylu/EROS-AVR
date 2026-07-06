@@ -26,7 +26,7 @@ ALLOWED_KEYS = {
     # and wires its ports through the RTE exactly like a models: SWC.
     "task":       {"name", "entry", "period_ms", "wcet_ms", "autostart",
                    "watchdog", "runnables", "runnable", "init", "ports",
-                   "calibrations"},
+                   "calibrations", "order"},
     "resource":   {"name", "users", "mask_tick_isr"},
     "pool":       {"block_size", "blocks"},
     "gpio":       {"pin", "dir", "pullup", "name", "init"},
@@ -34,7 +34,7 @@ ALLOWED_KEYS = {
     "uart":       {"baud", "tx_ring", "rx_ring"},
     # RTE generation from a Simulink SWC (see rte/README.md, models: schema).
     "model":      {"name", "codegen_dir", "init", "runnable", "rate_ms",
-                   "wcet_ms", "ports"},
+                   "wcet_ms", "ports", "order"},
     "ports":      {"in", "out"},
     # `type`/`description` are only read for hand-authored ports (a codegen
     # model parses the type from its C header); harmless (optional) on a model.

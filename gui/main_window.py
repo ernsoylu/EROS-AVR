@@ -312,20 +312,7 @@ class MainWindow(QMainWindow):
         gb = QGroupBox(f"{kind}: {tname}")
         form = QFormLayout(gb)
 
-        prio = "—" if row["priority"] is None else f"P{row['priority']}"
-        prow = QHBoxLayout()
-        prow.addWidget(QLabel(f"{prio}"))
-        up = QPushButton("▲ more urgent")
-        down = QPushButton("▼ less urgent")
-        up.clicked.connect(lambda: self._move_task(tname, True))
-        down.clicked.connect(lambda: self._move_task(tname, False))
-        for b in (up, down):
-            b.setEnabled(bool(row["period_ms"]))   # ordering is within a rate
-            prow.addWidget(b)
-        prow.addStretch(1)
-        pw = QWidget()
-        pw.setLayout(prow)
-        form.addRow("Priority (within rate)", pw)
+        form.addRow("Priority (within rate)", self._priority_combo(tname))
 
         autostart = QCheckBox("autostart (runs once at boot)")
         autostart.setChecked(row["autostart"])
@@ -489,6 +476,7 @@ class MainWindow(QMainWindow):
         rate.setRange(1, 32767)
         rate.setValue(int(meta.get("rate_ms") or 10))
         form.addRow("rate ms", rate)
+        form.addRow("Priority (within rate)", self._priority_combo(mname))
         lay.addWidget(gb)
 
         lay.addWidget(QLabel(
@@ -591,8 +579,27 @@ class MainWindow(QMainWindow):
         self._log(f"applied {name}")
         self._defer_refresh()
 
-    def _move_task(self, name, up):
-        if self.project.move_in_rate(name, up):
+    def _priority_combo(self, name):
+        """A dropdown that places `name` among its same-rate peers (both hand and
+        codegen tasks), most-urgent first. Aperiodic tasks have no rate to order
+        within, so it's disabled there."""
+        combo = QComboBox()
+        peers = self.project.rate_peers(name)
+        if len(peers) < 2:
+            combo.addItem("— (only runnable at this rate)")
+            combo.setEnabled(False)
+            return combo
+        n = len(peers)
+        for i in range(n):
+            tag = " (most urgent)" if i == 0 else (" (least)" if i == n - 1 else "")
+            combo.addItem(f"{i + 1} of {n}{tag}")
+        combo.setCurrentIndex(peers.index(name))     # set before connecting
+        combo.currentIndexChanged.connect(
+            lambda pos, nm=name: self._set_priority(nm, pos))
+        return combo
+
+    def _set_priority(self, name, tree_pos):
+        if self.project.set_rate_position(name, tree_pos):
             self._defer_refresh()
 
     def _make_asw(self, name):

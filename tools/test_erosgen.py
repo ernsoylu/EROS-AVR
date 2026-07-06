@@ -693,6 +693,20 @@ def test_asw_task_end_to_end_generate(tmp_path):
     assert "/* my algorithm */" in body.read_text()
 
 
+def test_within_rate_order_tiebreak():
+    # Same-rate tasks tie-break by explicit `order` (higher = more urgent), so a
+    # hand task and a codegen task at one rate interleave freely.
+    s = _system(
+        "system: { name: t }\n"
+        "tasks:\n"
+        "  - { name: a, period_ms: 100, wcet_ms: 1, order: 0 }\n"
+        "  - { name: b, period_ms: 100, wcet_ms: 1, order: 5 }\n"
+        "resources: [{ name: r, users: [a] }]\n")
+    pa = next(t for t in s.tasks if t.name == "A").priority
+    pb = next(t for t in s.tasks if t.name == "B").priority
+    assert pb > pa          # b has the higher order -> the higher priority
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]
