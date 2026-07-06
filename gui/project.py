@@ -6,6 +6,7 @@ load/save/generate actions. No Qt here - fully unit-testable.
 """
 import contextlib
 import io
+import re
 from pathlib import Path
 
 from ruamel.yaml import YAML
@@ -113,6 +114,33 @@ class ProjectModel:
                 seen.add(key)
                 merged.append(d)
         return merged
+
+    def locate(self, diag):
+        """Best-effort (path, line) 'jump to source' target for a diagnostic.
+        Resolves an app.yaml logical location - '<section>[<i>]' (e.g. tasks[1],
+        gpio[0]) or a top-level section (peripherals.uart, system) - to a 1-based
+        line via ruamel's line info; line is None when it can't be pinned but the
+        file still opens. (None, None) when the project is unsaved."""
+        if self.path is None:
+            return None, None
+        return self.path, self._line_of(getattr(diag, "location", "") or "")
+
+    def _line_of(self, location):
+        doc = self.doc
+        if not hasattr(doc, "lc"):          # a fresh (unsaved) plain-dict doc
+            return None
+        m = re.match(r"(\w+)\[(\d+)\]", location)   # "<section>[<i>]"
+        if m:
+            seq = doc.get(m.group(1))
+            try:
+                return seq.lc.data[int(m.group(2))][0] + 1
+            except (AttributeError, KeyError, IndexError, TypeError):
+                pass                         # fall back to the section's line
+        head = re.split(r"[.\[ ]", location, maxsplit=1)[0]
+        try:
+            return doc.lc.data[head][0] + 1
+        except (AttributeError, KeyError, TypeError):
+            return None
 
     # ---- model / peripheral binding ------------------------------------
     def model_signals(self, codegen_dir, name=None):

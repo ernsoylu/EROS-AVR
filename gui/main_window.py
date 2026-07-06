@@ -5,8 +5,8 @@ table (engine's collect_diagnostics). Bottom: a build console that streams
 `make`. Menu: File (Open/Save/Generate/Build), Help (About). No domain logic -
 every fact comes from the ProjectModel / the engine.
 """
-from PySide6.QtCore import Qt, QProcess
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QProcess, QUrl
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (QComboBox, QFileDialog, QLabel, QMainWindow,
                                QMessageBox, QPlainTextEdit, QSplitter,
                                QTableWidget, QTableWidgetItem, QTreeWidget,
@@ -41,6 +41,7 @@ class MainWindow(QMainWindow):
             ["Severity", "Code", "Location", "Message"])
         self.diag.verticalHeader().setVisible(False)
         self.diag.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.diag.itemDoubleClicked.connect(self._open_diagnostic)
         rl.addWidget(self.diag)
 
         panes = QSplitter(Qt.Horizontal)
@@ -95,7 +96,9 @@ class MainWindow(QMainWindow):
 
     def _on_mcu_changed(self, name):
         # live editing: change the target, the diagnostics/budget re-derive.
-        if self.project.path and name and name != self.project.mcu:
+        # Gate on the doc, not the saved path, so it also works on a new,
+        # not-yet-saved project (matching the live diagnostics behaviour).
+        if self.project.doc and name and name != self.project.mcu:
             self.project.set_mcu(name)
             self.refresh()
 
@@ -150,6 +153,7 @@ class MainWindow(QMainWindow):
         # gate on the doc (not the path) so a new, unsaved project shows its
         # diagnostics live too.
         diags = self.project.diagnostics() if self.project.doc else []
+        self._diags = diags          # row -> Diagnostic, for jump-to-source
         self.diag.setRowCount(len(diags))
         for row, d in enumerate(diags):
             for col, val in enumerate((d.severity, d.code, d.location,
@@ -159,6 +163,22 @@ class MainWindow(QMainWindow):
                     item.setForeground(QColor(_SEV_COLOR[d.severity]))
                 self.diag.setItem(row, col, item)
         self.diag.resizeColumnsToContents()
+
+    def _open_diagnostic(self, item):
+        """Double-click a problem row -> open its source (jump to source). The
+        Diagnostic.location resolves to a line in app.yaml where it can; the file
+        opens in the OS default editor either way."""
+        diags = getattr(self, "_diags", [])
+        row = item.row()
+        if not 0 <= row < len(diags):
+            return
+        path, line = self.project.locate(diags[row])
+        if path is None:
+            self.console.appendPlainText("jump to source: save the project first")
+            return
+        where = f"{path}:{line}" if line else str(path)
+        self.console.appendPlainText(f"opening {where}  ({diags[row].location})")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     # ---- actions --------------------------------------------------------
     def open_project(self):
