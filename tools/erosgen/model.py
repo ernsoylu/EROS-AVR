@@ -179,6 +179,25 @@ class System:
                 "entry": f"Task_{m['name']}",
                 "order": m.get("order"),
             })
+        # If the app will own cyclic alarms (any periodic/model task) but
+        # declares no autostart task, synthesize a minimal init task to arm
+        # them. Alarms are armed by OS_StartAlarms(), which only runs from an
+        # autostart task; with none, nothing calls it and every alarm stays
+        # disarmed -> the scheduler idles forever (dead firmware). A hand-
+        # authored autostart task, when present, is used as-is (it becomes the
+        # OS_StartAlarms site) and nothing is synthesized.
+        self.synthesized_init = None
+        has_autostart = any(isinstance(t, dict) and bool(t.get("autostart"))
+                            for t in task_specs)
+        has_periodic = any(isinstance(t, dict) and t.get("period_ms") is not None
+                           for t in task_specs)
+        if has_periodic and not has_autostart:
+            task_specs.append({"name": "init", "autostart": True, "wcet_ms": 1})
+            self.synthesized_init = "INIT"
+            sink.info("SYNTH_INIT",
+                      "no autostart task declared: synthesized TASK_INIT to arm "
+                      "the cyclic alarms (calls OS_StartAlarms). Declare your own "
+                      "autostart task to run boot logic there instead.", "tasks")
         tasks = [Task(t, sink) for t in task_specs]
         for i, t in enumerate(tasks):
             t._build_index = i          # default within-rate tie-break

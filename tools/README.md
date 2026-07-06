@@ -105,6 +105,16 @@ periodic tasks **rate-monotonically** (fastest period = highest
 priority). Alarm IDs are ordered fastest-first. This reproduces the
 reference demo's hand-tuned map exactly.
 
+**Autostart task is auto-synthesized when absent.** Cyclic alarms are
+armed by `OS_StartAlarms()`, which only runs from an autostart task — so
+an app with periodic/model tasks but *no* declared autostart task would
+never arm its alarms (the scheduler would idle forever). When that
+happens the generator synthesizes a minimal `TASK_INIT` that arms the
+alarms, reports it (`note: … synthesized TASK_INIT`, plus a `SYNTH_INIT`
+info diagnostic in the GUI), and moves on. Declare your own autostart
+task to put boot logic there instead — it becomes the `OS_StartAlarms()`
+site and nothing is synthesized.
+
 ## app.yaml reference
 
 ```yaml
