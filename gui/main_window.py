@@ -215,23 +215,32 @@ class MainWindow(QMainWindow):
             self.refresh()
 
     def add_task_dialog(self):
-        from PySide6.QtWidgets import QInputDialog
-        spec, ok = QInputDialog.getText(
-            self, "Add Task",
-            "name, period_ms (blank = aperiodic), wcet_ms:", text="ctrl, 10, 1")
-        if not (ok and spec.strip()):
+        # A typed form (QSpinBox) instead of comma-parsed free text - bad
+        # numbers are now impossible rather than caught after the fact.
+        from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFormLayout,
+                                       QLineEdit, QSpinBox)
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Add Task")
+        form = QFormLayout(dlg)
+        name = QLineEdit("ctrl")
+        period = QSpinBox()
+        period.setRange(0, 32767)
+        period.setValue(10)
+        period.setSpecialValueText("aperiodic")   # 0 reads as "aperiodic"
+        wcet = QSpinBox()
+        wcet.setRange(1, 32767)
+        wcet.setValue(1)
+        form.addRow("Name", name)
+        form.addRow("Period ms", period)
+        form.addRow("WCET ms", wcet)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        form.addRow(bb)
+        if dlg.exec() != QDialog.Accepted or not name.text().strip():
             return
-        parts = [p.strip() for p in spec.split(",")]
-        try:
-            period = int(parts[1]) if len(parts) > 1 and parts[1] else None
-            wcet = int(parts[2]) if len(parts) > 2 and parts[2] else 1
-        except ValueError:
-            QMessageBox.warning(
-                self, "Add Task",
-                "period_ms and wcet_ms must be whole numbers "
-                f"(got {spec!r}).")
-            return
-        self.project.add_task(parts[0], period, wcet)
+        self.project.add_task(name.text().strip(), period.value() or None,
+                              wcet.value())
         self.refresh()
 
     def remove_selected_task(self):
