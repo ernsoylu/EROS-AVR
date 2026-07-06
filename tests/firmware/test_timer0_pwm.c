@@ -15,7 +15,7 @@ int main(void)
 {
     tk_init();
 
-    T0PWM_Init();
+    T0Pwm_Init();
 
     /* Fast PWM mode 3: WGM01|WGM00 set, WGM02 (in TCCR0B) clear. */
     TK_ASSERT((TCCR0A & ((1u << WGM01) | (1u << WGM00))) ==
@@ -34,21 +34,21 @@ int main(void)
               ((1u << PD6) | (1u << PD5)), "pins-output");
 
     /* Mid duty on A connects the output and loads OCR0A. */
-    T0PWM_SetDuty(T0PWM_CH_A, 128u);
+    T0Pwm_SetDuty(T0PWM_CH_A, 128u);
     TK_ASSERT(OCR0A == 128u, "a-ocr");
     TK_ASSERT((TCCR0A & (1u << COM0A1)) != 0u, "a-connected");
-    TK_ASSERT(T0PWM_GetDuty(T0PWM_CH_A) == 128u, "a-getduty");
+    TK_ASSERT(T0Pwm_GetDuty(T0PWM_CH_A) == 128u, "a-getduty");
 
     /* Duty 0 disconnects the pin again (true 0%). */
-    T0PWM_SetDuty(T0PWM_CH_A, 0u);
+    T0Pwm_SetDuty(T0PWM_CH_A, 0u);
     TK_ASSERT((TCCR0A & (1u << COM0A1)) == 0u, "a-zero-disc");
-    TK_ASSERT(T0PWM_GetDuty(T0PWM_CH_A) == 0u, "a-zero-duty");
+    TK_ASSERT(T0Pwm_GetDuty(T0PWM_CH_A) == 0u, "a-zero-duty");
 
     /* Full duty on B. */
-    T0PWM_SetDuty(T0PWM_CH_B, 255u);
+    T0Pwm_SetDuty(T0PWM_CH_B, 255u);
     TK_ASSERT(OCR0B == 255u, "b-ocr");
     TK_ASSERT((TCCR0A & (1u << COM0B1)) != 0u, "b-connected");
-    TK_ASSERT(T0PWM_GetDuty(T0PWM_CH_B) == 255u, "b-getduty");
+    TK_ASSERT(T0Pwm_GetDuty(T0PWM_CH_B) == 255u, "b-getduty");
 
     tk_pass();
 }

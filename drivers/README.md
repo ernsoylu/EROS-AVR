@@ -27,10 +27,17 @@ at a time. Done so far:
   The `UART_TX_SIZE` / `UART_RX_SIZE` geometry macros keep their names (config,
   not interface).
 
-`Timer0` PWM stays `T0PWM_*` (distinct module); `ExtInt_*` / `PcInt_*` already
-conform. Still legacy: `SPI_*`, `I2C_*`, `EE_*`, `ICP_*`, `ACOMP_*`. The
-physical MCAL/Services/CDD directory topology and `<Mod>_MainFunction_<rate>ms`
-task wiring follow in later increments.
+- **Spi / I2c / Eep / Icp / Acomp / T0Pwm** — `SPI_*`→`Spi_*`, `I2C_*`→`I2c_*`,
+  `EE_*`→`Eep_*`, `ICP_*`→`Icp_*`, `ACOMP_*`→`Acomp_*`, `T0PWM_*`→`T0Pwm_*`
+  (Timer0 PWM stays a module distinct from `Pwm`). Only the **functions** are
+  renamed; config macros (`SPI_MODE*` / `SPI_CLK_DIV*`, `ACOMP_IN_*` /
+  `ACOMP_EVT_*`, `ADC_REF_*`, `UART_TX_SIZE` / `UART_RX_SIZE`) keep their names —
+  they are configuration, not the module interface. `ExtInt_*` / `PcInt_*`
+  already conformed.
+
+Every driver now uses AUTOSAR-MCAL-style `<Mod>_<Verb>` names. The physical
+MCAL/Services/CDD directory topology and `<Mod>_MainFunction_<rate>ms` task
+wiring follow in later increments.
 
 | Driver | Peripheral | Nano pins | ISRs | WCET notes |
 |---|---|---|---|---|

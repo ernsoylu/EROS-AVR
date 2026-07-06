@@ -942,10 +942,10 @@ def test_spi_config_init_args():
             "resources: [{ name: r, users: [a] }]\n"
             f"peripherals: {{ spi: {spi} }}\n")
         return next(ln.strip() for ln in emit_os_gen_h(s).splitlines()
-                    if "SPI_Init" in ln)
-    assert initline("{}") == "SPI_Init(SPI_MODE0, SPI_CLK_DIV16);"      # default
+                    if "Spi_Init" in ln)
+    assert initline("{}") == "Spi_Init(SPI_MODE0, SPI_CLK_DIV16);"      # default
     assert initline("{ mode: 2, clock: 8 }") == \
-        "SPI_Init(SPI_MODE2, SPI_CLK_DIV8);"
+        "Spi_Init(SPI_MODE2, SPI_CLK_DIV8);"
 
 
 def test_spi_config_validation():

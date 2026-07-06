@@ -204,10 +204,14 @@ with it and are migrated separately, not by a blind repo-wide rename).
       (text 3630 / data 4 / bss 291 unchanged); only the reference-demo Makefile
       golden changed (VPATH + `-I../drivers`, pwm.c local→shared). 63 tests + build
       + budget gates green.
-- [ ] **Remaining standalone drivers** (spi/i2c/eeprom/icp/acomp/timer0) →
-      AUTOSAR names. Lower value (non-RTE, non-demo; only their simavr tests use
-      them); prefix/macro hazards (`SPI_MODE*`, `I2C_SPEED`, `ADC_REF_*`) mean
-      per-function renames. `ExtInt_`/`PcInt_` already conform.
+- [x] **MCAL naming — standalone drivers** (increment 4): `SPI_*`→`Spi_*`,
+      `I2C_*`→`I2c_*`, `EE_*`→`Eep_*`, `ICP_*`→`Icp_*`, `ACOMP_*`→`Acomp_*`,
+      `T0PWM_*`→`T0Pwm_*`. Per-function `\b` renames kept the config macros
+      (`SPI_MODE*`/`SPI_CLK_DIV*`, `ACOMP_IN_*`, etc.). Driver .c/.h + simavr
+      tests + profile `driver_init` + the configured-SPI builder in `osgen.py`.
+      No golden drift (no fixture/demo declares these peripherals). All 6 test
+      firmwares build; drivers compile gate green. **Every driver is now
+      AUTOSAR-MCAL-named.**
 - [ ] Restructure toward the AUTOSAR topology dirs: MCAL, Services (EcuM-like
       startup, Dem-like error sink, Com-like IPC over the mailbox+pool),
       ComplexDeviceDriver (uart/watchdog) — file moves + Makefile path churn.

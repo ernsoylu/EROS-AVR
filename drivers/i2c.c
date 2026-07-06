@@ -86,14 +86,14 @@ static uint8_t I2C_Sla(uint8_t sla)
     return I2C_OK;
 }
 
-void I2C_Init(void)
+void I2c_Init(void)
 {
     TWSR = 0u;               /* prescaler 1                             */
     TWBR = I2C_TWBR;
     TWCR = (uint8_t)(1u << TWEN);
 }
 
-uint8_t I2C_Probe(uint8_t addr7)
+uint8_t I2c_Probe(uint8_t addr7)
 {
     uint8_t rc = I2C_Start();
 
@@ -112,7 +112,7 @@ uint8_t I2C_Probe(uint8_t addr7)
     return rc;
 }
 
-uint8_t I2C_WriteRegs(uint8_t addr7, uint8_t reg,
+uint8_t I2c_WriteRegs(uint8_t addr7, uint8_t reg,
                       const uint8_t *data, uint8_t len)
 {
     uint8_t rc = I2C_Start();
@@ -144,7 +144,7 @@ uint8_t I2C_WriteRegs(uint8_t addr7, uint8_t reg,
     return (st == TW_MT_DATA_ACK) ? I2C_OK : I2C_ERR_DATA_NACK;
 }
 
-uint8_t I2C_ReadRegs(uint8_t addr7, uint8_t reg,
+uint8_t I2c_ReadRegs(uint8_t addr7, uint8_t reg,
                      uint8_t *data, uint8_t len)
 {
     uint8_t rc = I2C_Start();

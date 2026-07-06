@@ -19,7 +19,7 @@ int main(void)
 
     tk_init();
 
-    SPI_Init(SPI_MODE0, SPI_CLK_DIV16);
+    Spi_Init(SPI_MODE0, SPI_CLK_DIV16);
 
     /* Master mode enabled, SPI enabled. */
     TK_ASSERT((SPCR & (1u << SPE)) != 0u, "spe");
@@ -27,16 +27,16 @@ int main(void)
 
     /* Every transfer clocks in the slave's constant byte, whatever we
      * send on MOSI. */
-    r = SPI_Transfer(0x00u);
+    r = Spi_Transfer(0x00u);
     TK_ASSERT(r == SPI_SLAVE_BYTE, "miso-1");
 
-    r = SPI_Transfer(0xFFu);
+    r = Spi_Transfer(0xFFu);
     TK_ASSERT(r == SPI_SLAVE_BYTE, "miso-2");
 
     /* In-place buffer transfer: each byte is overwritten with MISO. */
     {
         uint8_t buf[4] = { 0x01u, 0x23u, 0x45u, 0x67u };
-        SPI_TransferBuf(buf, 4u);
+        Spi_TransferBuf(buf, 4u);
         TK_ASSERT(buf[0] == SPI_SLAVE_BYTE && buf[1] == SPI_SLAVE_BYTE &&
                   buf[2] == SPI_SLAVE_BYTE && buf[3] == SPI_SLAVE_BYTE,
                   "miso-buf");

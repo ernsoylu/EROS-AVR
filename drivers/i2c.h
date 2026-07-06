@@ -30,19 +30,19 @@
 
 /** Configure TWI for 100 kHz. Call with interrupts disabled
  *  (e.g. from StartupHook()). Pull-ups are external. */
-void I2C_Init(void);
+void I2c_Init(void);
 
 /** Address-only probe (START + SLA+W + STOP).
  *  @return I2C_OK if a slave ACKed addr7 (7-bit address, unshifted). */
-uint8_t I2C_Probe(uint8_t addr7);
+uint8_t I2c_Probe(uint8_t addr7);
 
 /** Write len bytes to a register: START, SLA+W, reg, data..., STOP. */
-uint8_t I2C_WriteRegs(uint8_t addr7, uint8_t reg,
+uint8_t I2c_WriteRegs(uint8_t addr7, uint8_t reg,
                       const uint8_t *data, uint8_t len);
 
 /** Read len bytes from a register: START, SLA+W, reg, REPEATED START,
  *  SLA+R, data..., STOP. */
-uint8_t I2C_ReadRegs(uint8_t addr7, uint8_t reg,
+uint8_t I2c_ReadRegs(uint8_t addr7, uint8_t reg,
                      uint8_t *data, uint8_t len);
 
 #endif /* I2C_H */

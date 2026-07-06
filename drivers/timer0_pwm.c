@@ -16,7 +16,7 @@
 
 static uint8_t t0Duty[2];
 
-void T0PWM_Init(void)
+void T0Pwm_Init(void)
 {
     DDRD  |= (uint8_t)((1u << PD6) | (1u << PD5));
     PORTD &= (uint8_t)~((1u << PD6) | (1u << PD5));
@@ -31,7 +31,7 @@ void T0PWM_Init(void)
     t0Duty[1] = 0u;
 }
 
-void T0PWM_SetDuty(uint8_t channel, uint8_t duty)
+void T0Pwm_SetDuty(uint8_t channel, uint8_t duty)
 {
     if (channel == T0PWM_CH_A)
     {
@@ -66,7 +66,7 @@ void T0PWM_SetDuty(uint8_t channel, uint8_t duty)
     }
 }
 
-uint8_t T0PWM_GetDuty(uint8_t channel)
+uint8_t T0Pwm_GetDuty(uint8_t channel)
 {
     return t0Duty[(channel == T0PWM_CH_A) ? 0u : 1u];
 }

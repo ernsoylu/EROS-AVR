@@ -14,14 +14,14 @@
 #define ICP_FRESH_BOTH   0x03u
 
 /* ISR-written measurement state -> volatile; 16-bit values are read
- * under ATOMIC_BLOCK in ICP_Get(). */
+ * under ATOMIC_BLOCK in Icp_Get(). */
 static volatile uint16_t icpPeriod;
 static volatile uint16_t icpPulse;
 static volatile uint16_t icpLastRise;
 static volatile uint8_t  icpFresh;
 static volatile uint8_t  icpOvfCount;
 
-void ICP_Init(void)
+void Icp_Init(void)
 {
     DDRB  &= (uint8_t)~(1u << PB0); /* ICP1 input                       */
 
@@ -75,7 +75,7 @@ ISR(TIMER1_OVF_vect) /* Category 1: no OS service calls */
     }
 }
 
-uint8_t ICP_Get(uint16_t *periodTicks, uint16_t *pulseTicks)
+uint8_t Icp_Get(uint16_t *periodTicks, uint16_t *pulseTicks)
 {
     uint8_t valid = 0u;
 
