@@ -20,12 +20,18 @@ at a time. Done so far:
   stays **permille (0..1000)**, not AUTOSAR's 0..0x8000 — documented deviation.
   Renamed in both the shared `drivers/pwm.c` and `reference-demo/`'s app-local
   copy + its callers, so the name is consistent repo-wide.
+- **Uart** — `Uart_Init` / `Uart_PutChar` / `Uart_Print{,_P,U16,Hex8}` /
+  `Uart_GetChar` / `Uart_TxDropped` (was `UART_*`), in `reference-demo/uart.c` +
+  callers. The `UART_TX_SIZE` / `UART_RX_SIZE` compile-time geometry macros
+  (set via the generated Makefile's `-D`) keep their names — they are config,
+  not the module interface.
 
 The RTE generator (`bind.py` / `emit/rte.py`) and the MCU profiles emit these
-names. `Timer0` PWM stays `T0PWM_*` (a distinct module), and `reference-demo`'s
-`uart.c` keeps `UART_*` for now. The remaining modules, the physical
-MCAL/Services/CDD directory topology, and `<Mod>_MainFunction_<rate>ms` task
-wiring follow in later increments.
+names. `Timer0` PWM stays `T0PWM_*` (a distinct module). Still legacy-named
+(standalone drivers, exercised only by their simavr tests): `SPI_*`, `I2C_*`,
+`EE_*`, `ICP_*`, `ACOMP_*`, `T0PWM_*`; `ExtInt_*` / `PcInt_*` are already
+MixedCase. The physical MCAL/Services/CDD directory topology and
+`<Mod>_MainFunction_<rate>ms` task wiring follow in later increments.
 
 | Driver | Peripheral | Nano pins | ISRs | WCET notes |
 |---|---|---|---|---|

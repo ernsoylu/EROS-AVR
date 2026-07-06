@@ -199,8 +199,17 @@ with it and are migrated separately, not by a blind repo-wide rename).
       gates + fresh map (`Pwm_SetDutyCycle`) verify the rename; goldens stayed
       byte-identical. (Careful: `PWM_Init` is a substring of Timer0's `T0PWM_Init`
       — kept `T0PWM_*` distinct.)
-- [ ] **Remaining MCAL/CDD modules** (spi/i2c/gpt/icu/dio/uart/timer0/…) →
-      AUTOSAR names, one coherent module at a time.
+- [x] **MCAL naming — UART** (increment 3): `UART_*` → `Uart_*` (8 functions) in
+      `reference-demo/uart.c` + callers + the MCU profiles' `driver_init`. The
+      `UART_TX_SIZE`/`UART_RX_SIZE` geometry macros keep their names (config, not
+      interface). reference-demo (heavy UART user) builds byte-identical with
+      budget gates; `test_uart` firmware links `Uart_*`. With Adc/Pwm/Uart done,
+      **reference-demo is fully MCAL-named**.
+- [ ] **Remaining standalone drivers** (spi/i2c/eeprom/icp/acomp/timer0) →
+      AUTOSAR names. Lower value (non-RTE, non-demo; only their simavr tests use
+      them) and macro/diagnostic-code prefix hazards (`SPI_MODE*`, `I2C_SPEED`,
+      `ADC_REF_*`) mean per-function renames, not prefix seds. `ExtInt_`/`PcInt_`
+      already conform.
 - [ ] Restructure toward the AUTOSAR topology dirs: MCAL, Services (EcuM-like
       startup, Dem-like error sink, Com-like IPC over the mailbox+pool),
       ComplexDeviceDriver (uart/watchdog) — file moves + Makefile path churn.
