@@ -150,7 +150,22 @@ class System:
         # Model task bodies live in the generated Rte.c (Task_<model>), so they
         # get no asw_<rate>ms.c skeleton and aren't listed as one in the Makefile.
         self.model_task_names = {m["name"].upper() for m in self.models}
-        task_specs = list(doc.get("tasks", []))
+        # A declared task with a ports:/calibrations: interface is a hand-authored
+        # ASW SWC: like a model its body is Task_<name> in the RTE (not an
+        # asw_<rate>ms.c skeleton), and erosgen emits its <name>{,_Intfc,_Param}
+        # files. Its OS task is the *declared* one, so we just retarget its entry.
+        from .asw import is_asw_task
+        declared = list(doc.get("tasks", []) or [])
+        self.asw_tasks = [t for t in declared
+                          if is_asw_task(t) and t.get("name")]
+        self.asw_task_names = {str(t["name"]).upper() for t in self.asw_tasks}
+        self.rte_task_names = self.model_task_names | self.asw_task_names
+        task_specs = []
+        for t in declared:
+            if (isinstance(t, dict) and is_asw_task(t) and t.get("name")
+                    and "entry" not in t):
+                t = {**t, "entry": f"Task_{t['name']}"}
+            task_specs.append(t)
         for m in self.models:
             task_specs.append({
                 "name": m["name"],

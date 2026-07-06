@@ -20,8 +20,13 @@ ALLOWED_KEYS = {
     "hooks":      {"startup", "error", "shutdown"},
     "budget":     {"flash", "ram", "sram_total",
                    "image_flash", "image_ram"},
+    # A plain task carries just scheduling; a *hand-authored ASW task* adds an
+    # interface (ports/calibrations/runnable), authored here instead of parsed
+    # from Embedded Coder - erosgen then emits its <name>{,_Intfc,_Param} skeleton
+    # and wires its ports through the RTE exactly like a models: SWC.
     "task":       {"name", "entry", "period_ms", "wcet_ms", "autostart",
-                   "watchdog", "runnables"},
+                   "watchdog", "runnables", "runnable", "init", "ports",
+                   "calibrations"},
     "resource":   {"name", "users", "mask_tick_isr"},
     "pool":       {"block_size", "blocks"},
     "gpio":       {"pin", "dir", "pullup", "name", "init"},
@@ -31,8 +36,11 @@ ALLOWED_KEYS = {
     "model":      {"name", "codegen_dir", "init", "runnable", "rate_ms",
                    "wcet_ms", "ports"},
     "ports":      {"in", "out"},
+    # `type`/`description` are only read for hand-authored ports (a codegen
+    # model parses the type from its C header); harmless (optional) on a model.
     "port":       {"signal", "driver", "channel", "port", "bit",
-                   "slope", "offset"},
+                   "slope", "offset", "type", "description"},
+    "calibration": {"name", "type", "value", "description"},
 }
 
 

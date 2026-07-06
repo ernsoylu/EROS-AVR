@@ -594,6 +594,105 @@ def test_shared_budget_constants_match_report():
         == (128, 64)
 
 
+# --- Hand-authored ASW tasks (a task with a ports:/calibrations: interface) ---
+
+_ASW_APP = """
+system:
+  name: handdemo
+  kernel_dir: {kernel}
+  drivers_dir: {drivers}
+tasks:
+  - {{ name: init, autostart: true, wcet_ms: 1 }}
+  - name: ctrl
+    period_ms: 100
+    wcet_ms: 2
+    ports:
+      in:  [{{ signal: IN_Knob, type: uint16_T, description: "knob", driver: adc, channel: 0 }}]
+      out: [{{ signal: OUT_Led, type: boolean_T, description: "LED", driver: dio, port: B, bit: 5 }}]
+    calibrations:
+      - {{ name: Thresh, type: uint16_T, value: 512, description: "trip point" }}
+resources:
+  - {{ name: rte, users: [ctrl] }}
+""".format(kernel=REPO / "kernel", drivers=REPO / "drivers")
+
+
+def test_asw_task_resolves_like_a_model():
+    from erosgen.asw import is_asw_task, resolve_asw_task
+    from erosgen.diagnostics import Diagnostics
+    task = yaml.safe_load(_ASW_APP)["tasks"][1]
+    assert is_asw_task(task) and not is_asw_task({"name": "plain", "period_ms": 10})
+    sink = Diagnostics(strict=False)
+    rm = resolve_asw_task(task, sink)
+    assert [d for d in sink.items if d.severity == "error"] == []
+    assert rm.name == "ctrl" and rm.rate_ms == 100
+    assert rm.runnable_fn == "ctrl_Runnable" and rm.init_fn == "ctrl_initialize"
+    assert [p.signal.name for p in rm.inputs] == ["IN_Knob"]
+    assert rm.outputs[0].driver == "dio" and rm.outputs[0].params["bit"] == 5
+
+
+def test_asw_task_is_rte_bodied_in_system():
+    s = _system(_ASW_APP)
+    assert "CTRL" in s.asw_task_names and "CTRL" in s.rte_task_names
+    ctrl = next(t for t in s.tasks if t.name == "CTRL")
+    assert ctrl.entry == "Task_ctrl"          # RTE body, not asw_100ms.c
+    # a hand ASW task must not also get a per-rate skeleton in the Makefile
+    mk = erosgen.emit_makefile(s, Path("."))
+    assert "asw_100ms.c" not in mk
+    for src in ("ctrl.c", "ctrl_Intfc.c", "ctrl_Param.c", "Rte.c"):
+        assert src in mk
+    assert "adc.c" in mk                        # the in-port driver source
+
+
+def test_asw_task_rte_and_skeletons():
+    from erosgen.asw import resolve_asw_tasks
+    from erosgen.diagnostics import Diagnostics
+    from erosgen.emit.asw import (ASW_FILES, emit_asw_intfc_h, emit_asw_param_c,
+                                  emit_asw_task_c)
+    doc = yaml.safe_load(_ASW_APP)
+    rm = resolve_asw_tasks(doc, Diagnostics(strict=True))[0]
+    rte = erosgen.emit_rte_c([rm], "app.yaml", integrated=True)
+    assert "void Task_ctrl(void)" in rte and "Rte_Run_ctrl();" in rte
+    assert "RTE_CFG_KNOB_SIGNAL = Rte_Read_Knob();" in rte   # IN_Knob <- adc
+    # the interface header declares the ports as extern C globals + descriptions
+    intfc = emit_asw_intfc_h(rm, "app.yaml")
+    assert "extern uint16_t IN_Knob;" in intfc and "/* knob */" in intfc
+    # calibration storage carries the app.yaml value
+    assert "uint16_t Thresh = 512;" in emit_asw_param_c(rm, "app.yaml")
+    # the runnable body is the one file that is never overwritten
+    assert dict((suf, ov) for suf, _fn, ov in ASW_FILES)[".c"] is False
+    assert "ctrl_Runnable(void)" in emit_asw_task_c(rm, "app.yaml")
+
+
+def test_asw_task_unbound_port_is_fatal(tmp_path):
+    # A hand ASW port with no driver fails generation, exactly like a model port.
+    from erosgen.asw import resolve_asw_tasks
+    from erosgen.diagnostics import Diagnostics
+    from erosgen.errors import ConfigError
+    doc = yaml.safe_load(_ASW_APP)
+    doc["tasks"][1]["ports"]["in"][0].pop("driver")
+    try:
+        resolve_asw_tasks(doc, Diagnostics(strict=True))
+    except ConfigError:
+        pass
+    else:
+        raise AssertionError("expected ConfigError for an unbound ASW port")
+
+
+def test_asw_task_end_to_end_generate(tmp_path):
+    app = tmp_path / "app.yaml"
+    app.write_text(_ASW_APP)
+    rc = erosgen.main(["erosgen", str(app)])
+    assert rc == 0
+    for f in ("ctrl.c", "ctrl.h", "ctrl_Intfc.c", "ctrl_Intfc.h",
+              "ctrl_Param.c", "ctrl_Param.h", "Rte.c", "config.c", "Makefile"):
+        assert (tmp_path / f).exists(), f"missing generated {f}"
+    # regenerating must NOT clobber a hand-edited runnable body (overwrite=False)
+    body = tmp_path / "ctrl.c"
+    body.write_text(body.read_text() + "\n/* my algorithm */\n")
+    erosgen.main(["erosgen", str(app)])
+    assert "/* my algorithm */" in body.read_text()
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]
