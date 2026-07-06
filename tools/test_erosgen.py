@@ -708,13 +708,21 @@ def test_asw_task_fixture_goldens():
     got["Rte.h"] = emit_rte_h(rms, "app.yaml")
     got["Rte_Cfg.h"] = emit_rte_cfg_h(rms, "app.yaml")
     got["Rte.c"] = emit_rte_c(rms, "app.yaml", integrated=True)
-    for suffix, emit_fn, _ov in ASW_FILES:
-        got[f"{rm.name}{suffix}"] = emit_fn(rm, "app.yaml")
+    # Only the regenerated interface files (overwrite=True) are pinned to the
+    # emitter; <name>.c is the once-only, hand-authored runnable body, so it is
+    # intentionally NOT compared against the skeleton emitter.
+    for suffix, emit_fn, overwrite in ASW_FILES:
+        if overwrite:
+            got[f"{rm.name}{suffix}"] = emit_fn(rm, "app.yaml")
     for name, text in got.items():
         assert text == (d / name).read_text(), f"asw_task/{name} drifted"
     # the hand task became a real OS task + alarm, RTE-bodied
     assert "TASK_KNOB" in got["config.h"] and "ALARM_KNOB" in got["config.h"]
     assert "void Task_knob(void)" in got["Rte.c"]
+    # the committed knob.c carries a real runnable (LED = knob >= threshold),
+    # not the empty skeleton - and regenerating must never clobber it.
+    assert "OUT_Led = (uint8_t)(IN_KnbVal >= Knb_Thresh);" in \
+        (d / "knob.c").read_text()
 
 
 def test_asw_task_end_to_end_generate():

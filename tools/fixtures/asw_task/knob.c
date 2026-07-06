@@ -11,14 +11,13 @@
 
 void knob_initialize(void)
 {
-    /* TODO: one-time init (called once from Rte_Init at startup). */
+    /* no state to initialize */
 }
 
-/** knob step: read inputs (IN_*) -> compute -> write outputs (OUT_*). */
+/** knob step: the LED tracks whether the knob reading is at/above the
+ *  Knb_Thresh calibration. The RTE moves IN_KnbVal in from the ADC and
+ *  OUT_Led out to the dio pin, so the runnable only touches its ports. */
 void knob_Runnable(void)
 {
-    /* inputs: IN_KnbVal */
-    /* outputs: OUT_Led */
-    /* params: Knb_Thresh */
-    /* TODO: implement. */
+    OUT_Led = (uint8_t)(IN_KnbVal >= Knb_Thresh);
 }
