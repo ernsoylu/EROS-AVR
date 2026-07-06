@@ -9,7 +9,7 @@ MCU     := atmega328p
 F_CPU   := 16000000UL
 TARGET  := knobdemo
 
-VPATH   := ../../../kernel ../../../drivers
+VPATH   := ../../../kernel ../../../drivers/mcal
 
 APP_SRCS := main.c knob.c knob_Intfc.c knob_Param.c Rte.c
 SRCS     := $(APP_SRCS) adc.c eros.c config.c
@@ -27,7 +27,7 @@ BAUD    ?= 57600          # old-bootloader Nano; Optiboot: 115200
 CFLAGS  := -Wall -Wextra -Werror -std=c99 -Os -flto \
            -ffunction-sections -fdata-sections -fno-common \
            -mmcu=$(MCU) -DF_CPU=$(F_CPU) \
-           -I. -I../../../kernel -I../../../drivers
+           -I. -I../../../kernel -I../../../drivers/mcal
 LDFLAGS := -Wl,--gc-sections -Wl,-Map=$(TARGET).map
 
 .PHONY: all size flash clean config

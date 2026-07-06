@@ -33,7 +33,7 @@ BUILD       := build
 AVR_CFLAGS  := -Wall -Wextra -std=gnu99 -Os -g \
                -mmcu=$(MCU) -DF_CPU=$(F_CPU) \
                -ffunction-sections -fdata-sections \
-               -I common -I $(DRIVERS) -I $(REFDEMO) \
+               -I common -I $(DRIVERS)/mcal -I $(REFDEMO) \
                -I $(RTE) -I $(MODEL_RTW)
 AVR_LDFLAGS := -Wl,--gc-sections
 
@@ -48,21 +48,21 @@ RUNNER      := $(BUILD)/runtest
 # ADC voltages / SPI echo / GPIO edges from the host side.
 
 DRV_uart        := $(REFDEMO)/uart.c
-DRV_eeprom      := $(DRIVERS)/eeprom.c
-DRV_timer0_pwm  := $(DRIVERS)/timer0_pwm.c
-DRV_adc         := $(DRIVERS)/adc.c
-DRV_spi         := $(DRIVERS)/spi.c
-DRV_i2c         := $(DRIVERS)/i2c.c
-DRV_extint      := $(DRIVERS)/extint.c
-DRV_icp         := $(DRIVERS)/icp.c
-DRV_acomp       := $(DRIVERS)/acomp.c
+DRV_eeprom      := $(DRIVERS)/mcal/eeprom.c
+DRV_timer0_pwm  := $(DRIVERS)/mcal/timer0_pwm.c
+DRV_adc         := $(DRIVERS)/mcal/adc.c
+DRV_spi         := $(DRIVERS)/mcal/spi.c
+DRV_i2c         := $(DRIVERS)/mcal/i2c.c
+DRV_extint      := $(DRIVERS)/mcal/extint.c
+DRV_icp         := $(DRIVERS)/mcal/icp.c
+DRV_acomp       := $(DRIVERS)/mcal/acomp.c
 
 # Simulink model 'appKnbSwt' end-to-end: ASW (generated) + RTE + BSW (adc).
 DRV_model_knbswt := $(RTE)/Rte.c \
                     $(MODEL_RTW)/appKnbSwt.c \
                     $(MODEL_RTW)/appKnbSwt_Intfc.c \
                     $(MODEL_RTW)/appKnbSwt_Param.c \
-                    $(DRIVERS)/adc.c
+                    $(DRIVERS)/mcal/adc.c
 
 # ADC: A0 -> 2500 mV, A1 -> 1100 mV, A2 -> 0 mV (assertions use ordering)
 FLAGS_adc       := --adc 0:2500 --adc 1:1100 --adc 2:0

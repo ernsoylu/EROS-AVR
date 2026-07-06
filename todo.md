@@ -212,9 +212,14 @@ with it and are migrated separately, not by a blind repo-wide rename).
       No golden drift (no fixture/demo declares these peripherals). All 6 test
       firmwares build; drivers compile gate green. **Every driver is now
       AUTOSAR-MCAL-named.**
-- [ ] Restructure toward the AUTOSAR topology dirs: MCAL, Services (EcuM-like
-      startup, Dem-like error sink, Com-like IPC over the mailbox+pool),
-      ComplexDeviceDriver (uart/watchdog) — file moves + Makefile path churn.
+- [x] **AUTOSAR topology dirs** (increment 5): peripheral drivers moved to
+      `drivers/mcal/`; the `mcal/` subdir is threaded through the MCU profile
+      source-map + the Makefile emitter (`_layer_dir`/`_basename`: source
+      basenames stay flat, the layer dir goes on VPATH + `-I`). Services = the
+      EROS kernel; ComplexDeviceDriver = `reference-demo/uart.c`. Only the
+      Makefile goldens changed (`../drivers` → `../drivers/mcal`); reference-demo
+      image byte-identical (3630/4/291). drivers gate + all simavr firmwares +
+      RTE fixtures build; 63 tests; regen is a git-diff fixed point.
 - [ ] `<Mod>_MainFunction_<rate>ms` scheduling: generator wires a driver's cyclic
       MainFunction to the matching OS task (new codegen capability; no driver has
       a MainFunction yet).

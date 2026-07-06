@@ -60,15 +60,15 @@ aliases:
 # and drives the "did you mean" hint for unknown peripherals.
 peripherals:
   uart:       uart.c
-  pwm:        pwm.c          # Timer1 PWM
-  adc:        adc.c
-  eeprom:     eeprom.c
-  i2c:        i2c.c
-  spi:        spi.c
-  extint:     extint.c
-  timer0_pwm: timer0_pwm.c
-  icp:        icp.c
-  acomp:      acomp.c
+  pwm:        mcal/pwm.c          # Timer1 PWM
+  adc:        mcal/adc.c
+  eeprom:     mcal/eeprom.c
+  i2c:        mcal/i2c.c
+  spi:        mcal/spi.c
+  extint:     mcal/extint.c
+  timer0_pwm: mcal/timer0_pwm.c
+  icp:        mcal/icp.c
+  acomp:      mcal/acomp.c
 
 # Pins each peripheral drives when enabled - the single source of truth
 # for conflict detection. Plain ADC declares nothing (channels A0..A5 are

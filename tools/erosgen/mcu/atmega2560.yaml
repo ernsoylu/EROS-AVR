@@ -55,15 +55,15 @@ aliases:
 # need a 2560 port, but the tool only references the file names here).
 peripherals:
   uart:       uart.c
-  pwm:        pwm.c
-  adc:        adc.c
-  eeprom:     eeprom.c
-  i2c:        i2c.c
-  spi:        spi.c
-  extint:     extint.c
-  timer0_pwm: timer0_pwm.c
-  icp:        icp.c
-  acomp:      acomp.c
+  pwm:        mcal/pwm.c
+  adc:        mcal/adc.c
+  eeprom:     mcal/eeprom.c
+  i2c:        mcal/i2c.c
+  spi:        mcal/spi.c
+  extint:     mcal/extint.c
+  timer0_pwm: mcal/timer0_pwm.c
+  icp:        mcal/icp.c
+  acomp:      mcal/acomp.c
 
 # Pin ownership per peripheral on the 2560 (datasheet). Differs from the 328P:
 # UART0 is on PORTE, SPI on PB0..PB3, I2C on PORTD.
