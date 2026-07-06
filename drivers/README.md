@@ -2,8 +2,8 @@
 
 App-agnostic, kernel-independent drivers (pure avr-libc + registers, no
 `eros.h`, no `config.h`) completing the peripheral coverage started by
-`reference-demo/uart.c` (USART0) and `reference-demo/pwm.c`
-(Timer1 PWM). Every ISR here is OSEK **Category 1** — it only counts,
+`reference-demo/uart.c` (USART0) and `pwm.c` (Timer1 PWM — the reference
+demo now shares this driver too). Every ISR here is OSEK **Category 1** — it only counts,
 timestamps or moves bytes and never calls an OS service; tasks poll
 with atomic fetch functions. Blocking calls are hardware-bounded or
 timeout-capped so each has a documented WCET for the task budget table.
@@ -18,19 +18,19 @@ at a time. Done so far:
 - **Pwm** (shared `drivers/pwm.c`) — `Pwm_Init` / `Pwm_SetDutyCycle` /
   `Pwm_GetDutyCycle` (was `PWM_*`). Duty stays **permille (0..1000)**, not
   AUTOSAR's 0..0x8000 — documented deviation. This is the RTE-bound driver
-  (`bind.py` / `emit/rte.py` emit these names).
+  (`bind.py` / `emit/rte.py` emit these names). The reference demo used to ship
+  a near-duplicate fixed-1 kHz `pwm.c`; it now **shares this one** (deleted its
+  copy — the `pwm:` peripheral resolves to `drivers/pwm.c` at its 1 kHz
+  defaults, byte-identical image), so PWM is `Pwm_*` repo-wide.
 - **Uart** (`reference-demo/uart.c`) — `Uart_Init` / `Uart_PutChar` /
   `Uart_Print{,_P,U16,Hex8}` / `Uart_GetChar` / `Uart_TxDropped` (was `UART_*`).
   The `UART_TX_SIZE` / `UART_RX_SIZE` geometry macros keep their names (config,
   not interface).
 
-`reference-demo/`'s app-local `pwm.c` deliberately **keeps `PWM_*`**: it is a
-near-duplicate of the shared driver (a fixed-1 kHz variant), so renaming it too
-would just flag the pre-existing duplication — consolidating the two Timer1 PWM
-drivers is a separate cleanup. `Timer0` PWM stays `T0PWM_*` (distinct module);
-`ExtInt_*` / `PcInt_*` already conform. Still legacy: `SPI_*`, `I2C_*`, `EE_*`,
-`ICP_*`, `ACOMP_*`. The physical MCAL/Services/CDD directory topology and
-`<Mod>_MainFunction_<rate>ms` task wiring follow in later increments.
+`Timer0` PWM stays `T0PWM_*` (distinct module); `ExtInt_*` / `PcInt_*` already
+conform. Still legacy: `SPI_*`, `I2C_*`, `EE_*`, `ICP_*`, `ACOMP_*`. The
+physical MCAL/Services/CDD directory topology and `<Mod>_MainFunction_<rate>ms`
+task wiring follow in later increments.
 
 | Driver | Peripheral | Nano pins | ISRs | WCET notes |
 |---|---|---|---|---|
@@ -51,8 +51,7 @@ scope for application firmware).
 
 ## Resource conflicts — read before combining
 
-- `icp` **xor** `reference-demo/pwm.c`: both own Timer1. Never
-  initialise both.
+- `icp` **xor** `pwm`: both own Timer1. Never initialise both.
 - `spi` claims PB5/D13 (SCK) — the on-board LED. The demo uses PB5 as
   the heartbeat / hook indicator: move it before enabling SPI.
 - `timer0_pwm` (OC0A/PD6) conflicts with `acomp` in `ACOMP_IN_AIN0`
