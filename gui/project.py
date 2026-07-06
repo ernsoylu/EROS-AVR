@@ -826,6 +826,66 @@ class ProjectModel:
                             pins.add(pin)
         return pins
 
+    def pinout(self):
+        """The whole-chip pin map for the pinout view: per port letter, bits 0..7
+        mapped to {pin, aliases, owners, kind, conflict, usable}. `kind` is
+        periph|gpio|port|free|na; `conflict` = claimed by more than one owner.
+        Engine-backed (profile pins/aliases + the same ownership rules the
+        conflict-aware pickers use), so the grid renders facts, not GUI logic."""
+        try:
+            pr = self._profile()
+        except Exception:
+            return {"ports": [], "cells": {}}
+        silks = {}                                  # pin -> [board silk]
+        for silk, pin in pr.aliases.items():
+            silks.setdefault(pin, []).append(silk)
+        adc_alias = self._adc_alias_pins(pr)        # channel -> pin
+        owners = {}                                 # pin -> [(kind, label)]
+
+        def claim(pin, kind, label):
+            owners.setdefault(pin, []).append((kind, label))
+
+        for name in (self.plain.get("peripherals", {}) or {}):
+            for pin in pr.peripheral_pins.get(name, []):
+                claim(pin, "periph", name)
+        for g in self.plain.get("gpio", []) or []:
+            if isinstance(g, dict) and g.get("pin"):
+                pin = pr.aliases.get(str(g["pin"]).upper(), str(g["pin"]))
+                claim(pin, "gpio", g.get("name") or str(g["pin"]))
+        for e in self._swc_entries():
+            for direction in ("in", "out"):
+                for pd in (e.get("ports", {}) or {}).get(direction, []) or []:
+                    if not isinstance(pd, dict):
+                        continue
+                    sig = pd.get("signal", "?")
+                    if (pd.get("driver") == "dio" and pd.get("port")
+                            and pd.get("bit") is not None):
+                        claim(f"P{pd['port']}{pd['bit']}", "port", sig)
+                    elif (pd.get("driver") == "adc"
+                          and pd.get("channel") is not None):
+                        pin = adc_alias.get(int(pd["channel"]))
+                        if pin:
+                            claim(pin, "port", sig)
+        usable = set(silks) | set(owners)
+        for pins in pr.peripheral_pins.values():
+            usable.update(pins)
+        ports = list(pr.ports)
+        cells = {}
+        for port in ports:
+            for bit in range(8):
+                pin = f"P{port}{bit}"
+                claims = owners.get(pin, [])
+                cells[(port, bit)] = {
+                    "pin": pin,
+                    "aliases": sorted(silks.get(pin, [])),
+                    "owners": [lbl for _k, lbl in claims],
+                    "kind": (claims[0][0] if claims
+                             else ("free" if pin in usable else "na")),
+                    "conflict": len(claims) > 1,
+                    "usable": pin in usable,
+                }
+        return {"ports": ports, "cells": cells}
+
     def available_dio_pins(self, name, signal):
         """dio_pins() minus pins already owned elsewhere, always keeping this
         port's current pin so it stays selectable."""

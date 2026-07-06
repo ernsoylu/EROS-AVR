@@ -151,6 +151,35 @@ def test_mainwindow_smoke():
     w.close()
 
 
+def test_projectmodel_pinout():
+    import yaml
+    p = ProjectModel()
+    p.doc = yaml.safe_load("""
+system: { name: t, mcu: atmega328p, drivers_dir: ../drivers }
+peripherals: { spi: {}, uart: {} }
+gpio: [{ pin: D13, dir: out, name: LED }]
+tasks: [{ name: a, period_ms: 10, wcet_ms: 1 }]
+resources: [{ name: r, users: [a] }]
+""")
+    po = p.pinout()
+    assert po["ports"] == ["B", "C", "D"]
+    pb5 = po["cells"][("B", 5)]           # D13: SPI SCK vs the LED gpio
+    assert pb5["conflict"] and set(pb5["owners"]) == {"spi", "LED"}
+    assert po["cells"][("D", 0)]["kind"] == "periph"    # PD0 = UART RX
+    assert po["cells"][("B", 1)]["kind"] == "free"      # D9, unused
+    assert po["cells"][("B", 6)]["usable"] is False     # crystal, not broken out
+
+
+def test_mainwindow_pinout_grid():
+    from gui.main_window import MainWindow
+    _app()
+    w = MainWindow(ProjectModel(REF))
+    assert w.tabs.tabText(2) == "Pinout"
+    assert w.pinout.rowCount() == 3 and w.pinout.columnCount() == 8
+    assert "1 kHz" in w.pin_note.text()
+    w.close()
+
+
 def test_projectmodel_new_and_edit(tmp_path):
     p = ProjectModel()
     p.new("blinky", "atmega2560")

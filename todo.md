@@ -274,10 +274,15 @@ shipped.
 ### Phase 9 — Graphical pinout view (residual GUI gap)
 Conflict-aware pin/channel **dropdowns** exist; the CubeMX-style visual **pin-map
 grid** does not.
-- [ ] Render the MCU pins (from `mcu/*.yaml` `PERIPHERAL_PINS`/aliases) as a
-      clickable grid; selecting a peripheral auto-binds and highlights conflicts
-      live via the existing pin→owner check. Read-only clock-tree note (Timer2
-      /64, OCR2A=249) to document the fixed 1 kHz tick invariant.
+- [x] **Pinout grid** (done): a CubeMX-style **Pinout** tab renders the whole
+      chip — ports x bits 0..7, each cell coloured by owner (blue peripheral,
+      green gpio, purple port binding, **red conflict**, grey not-broken-out),
+      with per-pin tooltips and the read-only clock-tree note (Timer2 /64,
+      OCR2A=249 -> 1 kHz). Facts come from `ProjectModel.pinout()` (engine-backed:
+      profile pins/aliases + the same pin->owner rules the pickers use), so it
+      updates live on every edit/retarget. Verified headless via screenshot + 2
+      GUI tests. The grid is read-only; **click-to-bind** (auto-bind a peripheral
+      by clicking a pin) is a follow-on - the conflict-aware pickers already edit.
 
 ### Phase 10 — Backend protocol
 `backends/avr.py` isolates AVR idioms. Generalize to a `Backend` protocol
