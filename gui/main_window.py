@@ -304,6 +304,9 @@ class MainWindow(QMainWindow):
         # drivers_dir a project that binds a driver can't generate a Makefile.
         form.addRow("kernel dir", self._dir_field("kernel_dir", "…/kernel"))
         form.addRow("drivers dir", self._dir_field("drivers_dir", "…/drivers"))
+        detect = QPushButton("Auto-detect kernel + drivers")
+        detect.clicked.connect(self._autodetect_dirs)
+        form.addRow("", detect)
         lay.addWidget(cfg)
 
         facts = p.system_facts()
@@ -625,6 +628,15 @@ class MainWindow(QMainWindow):
 
     def _set_hook(self, name, on):
         self.project.set_hook(name, on)
+        self._defer_refresh()
+
+    def _autodetect_dirs(self):
+        if self.project.autodetect_dirs():
+            self._log(f"auto-detected kernel dir: {self.project.kernel_dir}\n"
+                      f"auto-detected drivers dir: {self.project.drivers_dir}")
+        else:
+            self._log("auto-detect: could not find kernel/ and drivers/ near "
+                      "erosgen — set them manually")
         self._defer_refresh()
 
     def _dir_field(self, key, hint):

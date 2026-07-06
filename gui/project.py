@@ -284,6 +284,25 @@ class ProjectModel:
         else:
             sysd.pop(key, None)
 
+    def detect_dirs(self):
+        """Best-effort auto-detect the EROS kernel/ and drivers/ folders by
+        walking up from the erosgen install to the repo root that holds both
+        (identified by kernel/eros.h). {} if erosgen lives outside an EROS tree.
+        Absolute paths, so they work from a project saved anywhere."""
+        here = Path(erosgen.__file__).resolve()
+        for base in here.parents:
+            kernel, drivers = base / "kernel", base / "drivers"
+            if (kernel / "eros.h").is_file() and drivers.is_dir():
+                return {"kernel_dir": str(kernel), "drivers_dir": str(drivers)}
+        return {}
+
+    def autodetect_dirs(self):
+        """Fill kernel_dir/drivers_dir from detect_dirs(). Returns True if found."""
+        found = self.detect_dirs()
+        for key, value in found.items():
+            self.set_dir(key, value)
+        return bool(found)
+
     def budget(self):
         """Pre-flash static-RAM plan (bytes) - what the tool's report prints, so
         'too much RAM' is visible before building. None if the config is invalid.
@@ -313,12 +332,15 @@ class ProjectModel:
 
     # ---- new project + editing -----------------------------------------
     def new(self, name="app", mcu="atmega328p"):
-        """Start a fresh, unsaved project from a minimal valid skeleton."""
+        """Start a fresh, unsaved project from a minimal valid skeleton, with the
+        kernel/drivers dirs auto-detected so it can generate + build out of the
+        box (when erosgen runs from an EROS tree)."""
         self.path = None
+        system = {"name": name, "mcu": mcu,
+                  "hooks": {"startup": True, "error": True, "shutdown": True}}
+        system.update(self.detect_dirs())      # kernel_dir/drivers_dir if found
         self.doc = {
-            "system": {"name": name, "mcu": mcu,
-                       "hooks": {"startup": True, "error": True,
-                                 "shutdown": True}},
+            "system": system,
             "tasks": [
                 {"name": "init", "autostart": True, "wcet_ms": 1},
                 {"name": "main", "period_ms": 100, "wcet_ms": 1},
