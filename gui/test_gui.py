@@ -136,24 +136,20 @@ def test_mainwindow_mcu_combo_live():
     w.close()
 
 
-def test_add_task_dialog_rejects_bad_numbers(monkeypatch):
-    # Non-numeric period/wcet used to throw ValueError straight out of the Qt
-    # slot; now it warns and adds nothing.
+def test_add_task_dialog_adds_typed_task(monkeypatch):
+    # The Add Task form uses typed QSpinBoxes, so bad numbers are impossible;
+    # accepting the dialog adds the task with its (default) field values.
     from gui.main_window import MainWindow
-    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    from PySide6.QtWidgets import QDialog
     _app()
     p = ProjectModel()
     p.new("t", "atmega328p")
     w = MainWindow(p)
     before = len(p.tasks())
-    monkeypatch.setattr(QInputDialog, "getText",
-                        lambda *a, **k: ("ctrl, ten, 1", True))
-    warned = {}
-    monkeypatch.setattr(QMessageBox, "warning",
-                        lambda *a, **k: warned.setdefault("hit", True))
-    w.add_task_dialog()                 # must not raise
-    assert warned.get("hit")            # the user was warned
-    assert len(p.tasks()) == before     # no bogus task was added
+    monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.Accepted)
+    w.add_task_dialog()                 # default fields: name "ctrl", 10 ms, 1 ms
+    assert len(p.tasks()) == before + 1
+    assert "ctrl" in {t["name"] for t in p.tasks()}
     w.close()
 
 
@@ -169,5 +165,55 @@ def test_mainwindow_surfaces_errors():
     w = MainWindow(ProjectModel(bad))
     codes = {w.diag.item(r, 1).text() for r in range(w.diag.rowCount())}
     assert "UNKNOWN_MCU" in codes  # the engine's diagnostic reaches the table
+    w.close()
+    os.unlink(bad)
+
+
+def test_projectmodel_locate_resolves_lines():
+    from erosgen import Diagnostic
+    p = ProjectModel(REF)
+    # an indexed location resolves to that item's 1-based line in app.yaml
+    path, line = p.locate(Diagnostic("error", "X", "msg", "tasks[1]"))
+    assert path == p.path and isinstance(line, int) and line > 0
+    assert "name:" in REF.read_text().splitlines()[line - 1]   # a task item
+    # an unresolvable location still returns the file, no line
+    upath, uline = p.locate(Diagnostic("error", "Z", "msg", "pin PB5"))
+    assert upath == p.path and uline is None
+    # an unsaved project has no jump target
+    fresh = ProjectModel()
+    fresh.new("x")
+    assert fresh.locate(Diagnostic("error", "W", "msg", "tasks[0]")) == (None, None)
+
+
+def test_mainwindow_mcu_change_on_unsaved_project():
+    from gui.main_window import MainWindow
+    _app()
+    w = MainWindow(ProjectModel())
+    w.project.new("demo", "atmega328p")   # unsaved: path is None
+    w.refresh()
+    assert w.project.path is None
+    w._on_mcu_changed("atmega2560")       # used to be a no-op without a saved path
+    assert w.project.mcu == "atmega2560"
+    w.close()
+
+
+def test_mainwindow_diagnostic_double_click_opens_source(monkeypatch):
+    import tempfile
+
+    from gui.main_window import MainWindow
+    from PySide6.QtGui import QDesktopServices
+    _app()
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
+        f.write("system: { name: t, mcu: attiny85 }\n"
+                "tasks: [{ name: a, period_ms: 10, wcet_ms: 1 }]\n"
+                "resources: [{ name: r, users: [a] }]\n")
+        bad = f.name
+    w = MainWindow(ProjectModel(bad))
+    assert w.diag.rowCount() >= 1
+    opened = {}
+    monkeypatch.setattr(QDesktopServices, "openUrl",
+                        lambda url: opened.setdefault("path", url.toLocalFile()))
+    w._open_diagnostic(w.diag.item(0, 0))          # simulate double-click on row 0
+    assert opened.get("path", "").endswith(".yaml")
     w.close()
     os.unlink(bad)

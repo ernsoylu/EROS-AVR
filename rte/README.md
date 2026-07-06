@@ -121,7 +121,9 @@ body that runs the runnable and `TerminateTask()`s), and wires the model as
 bound drivers added to the Makefile — so a model is integrated by editing
 `app.yaml` and running `python3 tools/erosgen.py app.yaml`. `parse/ert.py`
 identifies the exported signals, `bind.py` type-checks each port against its
-driver, `emit/rte.py` emits the C.
+driver, `emit/rte.py` emits the C. The model must be authored with the
+ExportToFile/Define storage classes and `IN_`/`OUT_` port naming — see
+[README_ASW.md](README_ASW.md) for that contract.
 
 ```sh
 python3 tools/erosgen.py tools/fixtures/model_app/app.yaml   # a complete app
