@@ -193,6 +193,48 @@ def test_collect_diagnostics_clean_for_reference_demo():
     assert [d for d in diags if d.severity == "error"] == []
 
 
+def test_synthesizes_init_task_when_no_autostart():
+    """An app with alarms but no autostart task gets a synthesized TASK_INIT so
+    OS_StartAlarms() is actually called. Without it nothing arms the alarms and
+    the scheduler idles forever - the sample_app dead-firmware bug."""
+    from erosgen.emit import emit_config_c, emit_main_skeleton
+    text = BASE + """
+tasks:
+  - { name: worker, period_ms: 10, wcet_ms: 1 }
+resources: [{ name: r, users: [worker] }]
+"""
+    doc = yaml.safe_load(text)
+    s = _system(text)
+    # a synthesized autostart init task now exists at priority 0
+    assert s.synthesized_init == "INIT"
+    init = next(t for t in s.tasks if t.name == "INIT")
+    assert init.autostart and init.priority == 0 and init.entry == "Task_Init"
+    # the generated main.c arms the alarms from that task
+    main_c = emit_main_skeleton(s)
+    assert "void Task_Init(void)" in main_c
+    assert "OS_StartAlarms();" in main_c
+    # config.c lists it as autostart
+    assert "[TASK_INIT] = { Task_Init, 1u" in emit_config_c(s)
+    # collect mode surfaces it as a non-error info diagnostic (for the GUI)
+    diags = erosgen.collect_diagnostics(doc, Path("app.yaml"))
+    assert [d for d in diags if d.severity == "error"] == []
+    assert any(d.code == "SYNTH_INIT" and d.severity == "info" for d in diags)
+
+
+def test_declared_autostart_suppresses_synthesis():
+    """A hand-authored autostart task is the OS_StartAlarms site; nothing is
+    synthesized and the existing output is unchanged."""
+    text = BASE + """
+tasks:
+  - { name: boot, autostart: true, wcet_ms: 1 }
+  - { name: worker, period_ms: 10, wcet_ms: 1 }
+resources: [{ name: r, users: [worker] }]
+"""
+    s = _system(text)
+    assert s.synthesized_init is None
+    assert not any(t.name == "INIT" for t in s.tasks)
+
+
 def test_mcu_profile_loads_atmega328p():
     from erosgen.mcu import load_profile
     p = load_profile("atmega328p")

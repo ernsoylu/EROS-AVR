@@ -16,8 +16,14 @@ def report(s):
         else:
             kind = "activated"
         wd = " wdg" if t.watchdog else ""
+        synth = ("  (synthesized: arms alarms)"
+                 if getattr(s, "synthesized_init", None) == t.name else "")
         print(f"    {t.priority}  TASK_{t.name:<10} {kind:>10}  "
-              f"wcet {t.wcet_ticks} tick(s){wd}  -> {t.entry}()")
+              f"wcet {t.wcet_ticks} tick(s){wd}  -> {t.entry}(){synth}")
+    if getattr(s, "synthesized_init", None):
+        print(f"  note: no autostart task declared; synthesized "
+              f"TASK_{s.synthesized_init} to arm the alarms (OS_StartAlarms). "
+              "Declare your own autostart task to customize boot.")
     base = s.periodic[0]
     load = sum(t.wcet_ticks for t in s.periodic)
     print(f"  schedulability: sum(WCET)={load} ticks <= base period "

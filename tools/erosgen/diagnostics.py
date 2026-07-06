@@ -37,6 +37,9 @@ class Diagnostics:
     def warning(self, code, message, location=""):
         self.items.append(Diagnostic("warning", code, message, location))
 
+    def info(self, code, message, location=""):
+        self.items.append(Diagnostic("info", code, message, location))
+
     @property
     def errors(self):
         return [d for d in self.items if d.severity == "error"]
