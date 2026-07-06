@@ -73,26 +73,28 @@ its "gaps" wrong — it read the docs, and the docs describe a repo ~15 commits
 stale. Stale docs are actively misleading downstream readers and tools. Fix the
 source of truth before adding features.
 
-- [ ] **`todo.md` line-number rot** — the old file cited `:157`–`:1013` line refs
+- [x] **`todo.md` line-number rot** — the old file cited `:157`–`:1013` line refs
       into the pre-split monolith. This rewrite drops them; keep it that way
       (reference symbols/files, not line numbers, which drift).
-- [ ] **`gui/README.md` is stale** — "What it does" lists only File/Edit
-      (Add Task · Remove) / Model menus and claims a read-only project tree.
-      Update to the shipped GUI: Edit menu (Add Task, Add **Codegen** Task, Add
-      **Resource**, Remove Selected), the **Peripherals** tree section
-      (activate + configure, ● = active), conflict-aware pin/channel pickers,
-      resource + hand-ASW-task editors, live retarget. Re-check the "zero domain
-      logic" claim now that peripheral forms exist (still engine-backed? state it).
-- [ ] **`README.md` GUI blurb** (layout section) — mention the peripheral
-      configuration forms + conflict-aware pinning, not just "bind model ports".
-- [ ] **Kill the "deferred" claims everywhere** — multi-model RTE, pwm RTE
-      adapter, and GUI editing are DONE; remove them from any "deferred /
-      follow-ups" list in `todo.md`, `README.md`, `rte/README.md`, `tools/README.md`.
-- [ ] **Add a "generation & overwrite policy" doc** — the single most important
-      undocumented behavior (see Phase 5): which files are regenerated every run
-      vs written once. Users must know `config.*`/`Makefile`/`os_gen.h`/`Rte.*`
-      are overwritten and `main.c`/`asw_*.c` are once-only. Put it in
-      `tools/README.md` and reference it from `README.md`.
+- [x] **`gui/README.md` is stale** — rewritten to the shipped GUI: File/Edit
+      (Add Task, Add **Codegen** Task, Add **Resource**, Remove Selected)/Help
+      menus (the Model menu is gone), the **Peripherals** tree section
+      (● active / ○ inactive), conflict-aware pin/channel pickers, resource +
+      hand-ASW-task editors, inline port binding (driver *or* ASW→ASW source),
+      live retarget, 37 tests. The false "signal→signal wiring not included"
+      section is removed (the engine + GUI now support it). "Zero domain logic"
+      restated and confirmed engine-backed (`ProjectModel`).
+- [x] **`README.md` GUI blurb** (layout section) — now mentions peripheral
+      activation/config + conflict-aware pinning and driver/ASW→ASW port binding.
+- [x] **Kill the "deferred" claims everywhere** — done. No stale "deferred /
+      follow-ups" lists remained in `README.md`/`rte/README.md`/`tools/README.md`;
+      the only cross-doc GUI staleness was `rte/README.md`'s "Model menu" (fixed
+      to Edit → Add Codegen Task + inline binding). `todo.md`'s status ledger
+      keeps its "(was deferred)" notes intentionally as history.
+- [x] **Add a "generation & overwrite policy" doc** — `tools/README.md` now has a
+      **Generation & overwrite policy** heading over the overwrite table, and
+      `README.md` points to it and states `config.*`/`Makefile`/`os_gen.h`/`Rte.*`
+      are overwritten while `main.c`/`asw_*.c` are once-only.
 - [ ] **Docs-drift guard (optional, cheap)** — a CI check or test that asserts a
       few load-bearing doc facts against code (e.g. the peripheral list in
       `gui/README.md` ⊆ `validate.ALLOWED_KEYS`, the overwrite table matches
@@ -145,14 +147,29 @@ Validation is code-driven: `validate.ALLOWED_KEYS` (a dict) + hand-coded checks
 emitting string codes (`UNKNOWN_KEY`, `PIN_CONFLICT`, `TICK_HZ`, …). Adding a
 peripheral means editing `validate.py` + `model.py` + an emitter.
 
-- [ ] Externalize the config contract into a versioned JSON Schema (draft
-      2020-12) per `app.yaml` version; validate with `jsonschema` (a `[dev]` or
-      `[schema]` extra — keep core PyYAML-only).
-- [ ] Migrate the existing checks to schema constraints attached to schema paths;
-      the `Diagnostics` sink stays the reporting channel (it was designed for this).
-- [ ] Goal: adding a peripheral = a schema edit, and the GUI renders constraint
-      violations from the same rule set the CLI uses.
-- **Risk:** low, additive; the sink already carries codes + locations.
+- [x] Externalize the config contract into a versioned JSON Schema (draft
+      2020-12): `tools/erosgen/schema/app.schema.json` (`$id` .../app/v1).
+      Validated with `jsonschema` behind the opt-in `[schema]` extra + `erosgen
+      --schema`; **core stays PyYAML-only** (the schema is stdlib-loadable JSON;
+      generation + the dep-free key check need no extra — proven with jsonschema
+      blocked). `--schema` fails rc 1 on a violation (before generating) and rc 2
+      if the extra is missing (never a silent no-op).
+- [x] **Single source of truth:** `validate.ALLOWED_KEYS` is now DERIVED from the
+      schema (`schema.section_keys()`), so the dep-free key check and the full
+      JSON-Schema validation can't drift; `test_allowed_keys_derived_from_schema_
+      matches_contract` pins it. Static value constraints (`tick_hz` const,
+      `spi.mode/clock`, `adc.reference/prescaler`, `uart` rings, `pool`,
+      `gpio.dir`) live in the schema and map to the engine's existing codes via
+      `x-eros-code` at precise dotted locations through the same `Diagnostics` sink.
+- **Scope note:** the schema owns the *static* surface; the ~10 MCU/F_CPU-
+      dependent and cross-field checks (pin ownership, schedulability, ceilings,
+      pwm/i2c ranges, peripheral availability) are not JSON-Schema-expressible and
+      stay in `model.py` (default flow unchanged → no double-reporting). Follow-ups
+      (own increments): wire the schema pass into `collect_diagnostics` so the GUI
+      renders schema violations too (dedupe against code checks), and thin the now-
+      redundant static checks in `model.py` once the schema owns them by default.
+- **Risk:** low, additive; new `schema.py`/`app.schema.json`, `ALLOWED_KEYS`
+      derivation, `--schema` flag. 58 engine + 37 GUI tests, ruff + mypy green.
 
 ### Phase 7 — BSW/MCAL layering
 `drivers/` is flat (`adc/eeprom/i2c/spi/timer0_pwm/…`) with no MCAL/Services

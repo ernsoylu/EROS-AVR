@@ -1074,6 +1074,101 @@ def test_write_idempotent_skip_merge_and_legacy_kept():
         assert legacy.read_text() == "hand written, no markers\n"
 
 
+def test_allowed_keys_derived_from_schema_matches_contract():
+    """validate.ALLOWED_KEYS is DERIVED from schema/app.schema.json (single
+    source, dep-free). This pins the contract: changing a section's key set is
+    now a schema edit, and this snapshot makes the change deliberate."""
+    from erosgen.validate import ALLOWED_KEYS
+    assert ALLOWED_KEYS == erosgen.section_keys()      # derivation is live
+    expected = {
+        "doc": {"system", "sources", "peripherals", "tasks", "resources",
+                "pool", "gpio", "simulink", "models"},
+        "system": {"name", "mcu", "kernel_dir", "drivers_dir", "tick_hz",
+                   "alarm_max_offset", "stack", "hooks", "budget"},
+        "stack": {"canary", "guard_bytes", "paint_margin"},
+        "hooks": {"startup", "error", "shutdown"},
+        "budget": {"flash", "ram", "sram_total", "image_flash", "image_ram"},
+        "task": {"name", "entry", "period_ms", "wcet_ms", "autostart",
+                 "watchdog", "runnables", "runnable", "init", "ports",
+                 "calibrations", "order"},
+        "resource": {"name", "users", "mask_tick_isr"},
+        "pool": {"block_size", "blocks"},
+        "gpio": {"pin", "dir", "pullup", "name", "init"},
+        "simulink": {"model", "dir", "rate_map"},
+        "uart": {"baud", "tx_ring", "rx_ring"},
+        "pwm": {"freq_hz"}, "spi": {"mode", "clock"},
+        "adc": {"reference", "prescaler"}, "i2c": {"speed_hz"},
+        "timer0_pwm": {"freq_hz"},
+        "model": {"name", "codegen_dir", "init", "runnable", "rate_ms",
+                  "wcet_ms", "ports", "order"},
+        "ports": {"in", "out"},
+        "port": {"signal", "driver", "channel", "port", "bit", "slope",
+                 "offset", "type", "description", "source"},
+        "calibration": {"name", "type", "value", "description"},
+    }
+    assert ALLOWED_KEYS == expected
+
+
+def test_schema_is_valid_draft2020():
+    if not erosgen.schema_available():
+        return                                          # [schema] extra absent
+    from jsonschema import Draft202012Validator
+    Draft202012Validator.check_schema(erosgen.load_schema())
+
+
+def test_schema_accepts_every_shipped_config():
+    """The schema must not reject any valid app.yaml the repo ships (else the
+    --schema gate would flag good configs). model_rte is a partial RTE-emitter
+    fixture (no system:) and is validated for shape too."""
+    if not erosgen.schema_available():
+        return
+    configs = [REPO / "reference-demo" / "app.yaml"]
+    configs += sorted((HERE / "fixtures").glob("*/app.yaml"))
+    for c in configs:
+        sink = erosgen.validate_schema(yaml.safe_load(c.read_text()))
+        errs = [(d.code, d.location, d.message) for d in sink.items
+                if d.severity == "error"]
+        assert errs == [], f"{c.name} wrongly rejected: {errs}"
+
+
+def test_schema_catches_static_violations_with_friendly_codes():
+    """Static shape/value violations map to the engine's existing codes at a
+    precise dotted location; unknown keys surface as SCHEMA_ADDITIONALPROPERTIES."""
+    if not erosgen.schema_available():
+        return
+
+    def codes(doc):
+        return {(d.code, d.location) for d in erosgen.validate_schema(doc).items}
+    assert ("TICK_HZ", "system.tick_hz") in codes({"system": {"tick_hz": 500}})
+    assert ("SPI_MODE", "peripherals.spi.mode") in \
+        codes({"peripherals": {"spi": {"mode": 9}}})
+    assert ("ADC_REF", "peripherals.adc.reference") in \
+        codes({"peripherals": {"adc": {"reference": "bogus"}}})
+    assert ("UART_RING", "peripherals.uart.tx_ring") in \
+        codes({"peripherals": {"uart": {"tx_ring": 100}}})
+    assert ("POOL_BLOCKS", "pool.blocks") in codes({"pool": {"blocks": 9}})
+    assert ("SCHEMA_ADDITIONALPROPERTIES", "tasks.0") in \
+        codes({"tasks": [{"name": "a", "periods_ms": 10}]})   # typo'd key
+
+
+def test_schema_cli_flag_gates_generation():
+    """`erosgen --schema` fails (rc 1) on a schema violation without generating,
+    and passes a valid app through."""
+    if not erosgen.schema_available():
+        return
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        bad = Path(tmp) / "app.yaml"
+        bad.write_text("system: { name: b, kernel_dir: ../kernel, tick_hz: 500 }\n"
+                       "sources: [main.c]\n"
+                       "tasks: [{ name: a, period_ms: 10, wcet_ms: 1 }]\n"
+                       "resources: [{ name: r, users: [a] }]\n")
+        assert erosgen.main(["erosgen", str(bad), "--schema"]) == 1
+        assert not (Path(tmp) / "config.h").exists()     # aborted before write
+    ok = REPO / "reference-demo" / "app.yaml"
+    assert erosgen.main(["erosgen", str(ok), "--schema", "--check"]) == 0
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

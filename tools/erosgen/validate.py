@@ -7,48 +7,17 @@ strict (raise) and collect (accumulate) modes; message text is unchanged.
 """
 import difflib
 
-# Recognised keys per YAML section - anything else is a typo and is
-# rejected (with a "did you mean" hint). This is the highest-value
-# guard: a misspelled 'period_ms' would otherwise silently make a task
-# aperiodic with no error.
-ALLOWED_KEYS = {
-    "doc":        {"system", "sources", "peripherals", "tasks",
-                   "resources", "pool", "gpio", "simulink", "models"},
-    "system":     {"name", "mcu", "kernel_dir", "drivers_dir", "tick_hz",
-                   "alarm_max_offset", "stack", "hooks", "budget"},
-    "stack":      {"canary", "guard_bytes", "paint_margin"},
-    "hooks":      {"startup", "error", "shutdown"},
-    "budget":     {"flash", "ram", "sram_total",
-                   "image_flash", "image_ram"},
-    # A plain task carries just scheduling; a *hand-authored ASW task* adds an
-    # interface (ports/calibrations/runnable), authored here instead of parsed
-    # from Embedded Coder - erosgen then emits its <name>{,_Intfc,_Param} skeleton
-    # and wires its ports through the RTE exactly like a models: SWC.
-    "task":       {"name", "entry", "period_ms", "wcet_ms", "autostart",
-                   "watchdog", "runnables", "runnable", "init", "ports",
-                   "calibrations", "order"},
-    "resource":   {"name", "users", "mask_tick_isr"},
-    "pool":       {"block_size", "blocks"},
-    "gpio":       {"pin", "dir", "pullup", "name", "init"},
-    "simulink":   {"model", "dir", "rate_map"},
-    "uart":       {"baud", "tx_ring", "rx_ring"},
-    "pwm":        {"freq_hz"},   # Timer1 fast-PWM; erosgen picks prescaler + TOP
-    "spi":        {"mode", "clock"},   # SPI_Init(SPI_MODE<mode>, SPI_CLK_DIV<clock>)
-    "adc":        {"reference", "prescaler"},  # avcc/internal/aref + /2../128
-    "i2c":        {"speed_hz"},                 # SCL bus speed (100000/400000/...)
-    "timer0_pwm": {"freq_hz"},                  # Timer0 (8-bit); prescaler only
-    # RTE generation from a Simulink SWC (see rte/README.md, models: schema).
-    "model":      {"name", "codegen_dir", "init", "runnable", "rate_ms",
-                   "wcet_ms", "ports", "order"},
-    "ports":      {"in", "out"},
-    # `type`/`description` are only read for hand-authored ports (a codegen
-    # model parses the type from its C header); harmless (optional) on a model.
-    # `source` wires an input to another SWC's output (ASW->ASW internal signal)
-    # instead of a hardware driver: "<SWC>.<OUT_signal>".
-    "port":       {"signal", "driver", "channel", "port", "bit",
-                   "slope", "offset", "type", "description", "source"},
-    "calibration": {"name", "type", "value", "description"},
-}
+from .schema import section_keys
+
+# Recognised keys per YAML section - anything else is a typo and is rejected
+# (with a "did you mean" hint). This is the highest-value guard: a misspelled
+# 'period_ms' would otherwise silently make a task aperiodic with no error.
+#
+# The sets are DERIVED from schema/app.schema.json (the single declarative
+# contract) so this dep-free key check and the full JSON-Schema validation
+# (schema.validate_schema) can never drift. Adding a peripheral/key is one edit
+# to the schema; test_allowed_keys_match_schema pins the mapping.
+ALLOWED_KEYS = section_keys()
 
 
 def check_keys(d, section, where, sink):
