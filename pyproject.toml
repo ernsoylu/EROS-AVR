@@ -12,9 +12,14 @@ dependencies = ["pyyaml>=6"]
 mat = ["scipy>=1.10"]
 # Phase 3: GUI + comment-preserving YAML round-trip.
 gui = ["PySide6>=6.6", "ruamel.yaml>=0.18"]
+# Phase 6: full draft-2020-12 validation of app.yaml against schema/app.schema.json
+# (`erosgen --schema`). The schema is stdlib-loadable JSON, so it drives the
+# dep-free key check without this extra; only running the FULL schema needs it.
+schema = ["jsonschema>=4.18"]
 
 [dependency-groups]
 dev = [
+    "jsonschema>=4.18",
     "mypy>=1.19.1",
     "pytest>=8",
     "ruff>=0.15.20",
@@ -41,8 +46,9 @@ python_version = "3.10"             # mypy's floor; the code itself targets 3.9+
 mypy_path = "tools"                 # so gui's `import erosgen` resolves
 files = ["tools/erosgen", "gui"]
 
-# ruamel.yaml and PySide6 ship no type stubs; treat them as untyped rather than
-# failing the check. PyYAML is covered by types-PyYAML (a dev dep).
+# ruamel.yaml, PySide6 and jsonschema ship no bundled stubs (and are optional
+# extras absent from the lint env); treat them as untyped rather than failing
+# the check. PyYAML is covered by types-PyYAML (a dev dep).
 [[tool.mypy.overrides]]
-module = ["ruamel", "ruamel.*", "PySide6.*"]
+module = ["ruamel", "ruamel.*", "PySide6.*", "jsonschema", "jsonschema.*"]
 ignore_missing_imports = true

@@ -18,11 +18,14 @@ from .model import Resource, System, Task, collect_diagnostics
 from .models import ResolvedModel, resolve_model, resolve_models
 from .parse import Calibration, ModelInterface, Signal, parse_model
 from .report import report
+from .schema import (load_schema, schema_available, section_keys,
+                    validate_schema)
 
 __all__ = [
     "__version__",
     "ConfigError", "fail",
     "Diagnostic", "Diagnostics", "collect_diagnostics",
+    "load_schema", "schema_available", "section_keys", "validate_schema",
     "parse_model", "ModelInterface", "Signal", "Calibration",
     "resolve_models", "resolve_model", "ResolvedModel",
     "System", "Task", "Resource",
