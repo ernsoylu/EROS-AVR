@@ -197,12 +197,13 @@ with it and are migrated separately, not by a blind repo-wide rename).
       `Pwm_*`; `test_uart` links `Uart_*`. **Deliberately left `reference-demo`'s
       app-local `pwm.c` as `PWM_*`** — it is a near-duplicate of the shared driver,
       so renaming both trips SonarCloud's new-code duplication gate.
-- [ ] **Consolidate the duplicate Timer1 PWM driver** — `reference-demo/pwm.c` is
-      a fixed-1 kHz near-copy of the configurable `drivers/pwm.c`. Make the demo
-      use the shared driver (delete the app-local copy; the `pwm:` peripheral
-      resolves to `drivers/pwm.c` at its 1 kHz defaults) so PWM is `Pwm_*`
-      everywhere and the duplication is gone. Touches the reference-demo Makefile
-      golden + include path — verify the image stays within budget.
+- [x] **Consolidate the duplicate Timer1 PWM driver** (increment 3): deleted
+      `reference-demo/pwm.{c,h}`; the `pwm:` peripheral now resolves to the shared
+      `drivers/pwm.c` (Pwm_*) at its 1 kHz defaults, and the demo's callers are
+      `Pwm_*`. Duplication gone; PWM is `Pwm_*` repo-wide. **Image byte-identical**
+      (text 3630 / data 4 / bss 291 unchanged); only the reference-demo Makefile
+      golden changed (VPATH + `-I../drivers`, pwm.c local→shared). 63 tests + build
+      + budget gates green.
 - [ ] **Remaining standalone drivers** (spi/i2c/eeprom/icp/acomp/timer0) →
       AUTOSAR names. Lower value (non-RTE, non-demo; only their simavr tests use
       them); prefix/macro hazards (`SPI_MODE*`, `I2C_SPEED`, `ADC_REF_*`) mean
