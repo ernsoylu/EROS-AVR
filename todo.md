@@ -53,7 +53,7 @@ Compressed ledger; detail lives in git history. **Do not re-plan these.**
   (`port.source: "<SWC>.<OUT>"`); validated + RTE-routed.
 - **MCU breadth (same family)** — `MCUProfile` threaded through the tool;
   `system.mcu` selects target; `atmega2560.yaml` + `arduino_uno.yaml` added;
-  `mega_gpio` fixture proves 2560 (PORTL, PB7). Non-AVR targets are out of scope.
+  `mega_gpio` fixture proves 2560 (PORTL, PB7).
 - **GUI is now an editor, not read-only** (was "deferred"): master-detail
   configurator with in-place editing — Add/Remove Task, Add Codegen Task, Add
   Resource, resource editor, hand-ASW-task authoring, within-rate priority
@@ -61,8 +61,7 @@ Compressed ledger; detail lives in git history. **Do not re-plan these.**
   I2C/Timer0; **conflict-aware pin/channel pickers** (a clash can't be picked);
   MCU/board retarget live; `ruamel.yaml` round-trip preserves comments.
   Verified headless via Qt offscreen.
-- **pwm RTE adapter** — DONE. **`codeInfo.mat` cross-check** — ABANDONED (opaque
-  proprietary schema; the C header stays authoritative).
+- **pwm RTE adapter** — DONE.
 
 ---
 
@@ -290,9 +289,6 @@ grid** does not.
 interface instead of importing `backends.avr` directly — a cleaner seam even
 while AVR is the only backend.
 - [ ] `Backend` protocol; emitters read it instead of importing `backends.avr`.
-- **Note:** non-AVR targets (e.g. Cortex-M) are **out of scope** — they need a
-      whole separate kernel port (context switch, no PROGMEM, different
-      toolchain), not just a backend module. This project stays AVR-only.
 
 ### Phase 11 — ASW parser robustness + interchange
 Regex parser is tied to the ExportToFile/Define storage-class contract.
@@ -300,18 +296,12 @@ Regex parser is tied to the ExportToFile/Define storage-class contract.
       don't follow the contract — keeps the data model unchanged.
 - [ ] Tier B: accept a hand-authored `swc.yaml` (ports/types/runnables) as a
       first-class alternative to the Embedded Coder round-trip.
-- [ ] Tier C — **DEFERRED (not urgent)**: import ARXML SWC descriptions; source
-      scaling from `SwDataDefProps` (min/max/offset/slope) instead of the
-      abandoned `.mat`. Parked until there is a concrete ARXML source to consume.
 
 ### Phase 12 — Toolchain/project gen + calibration (low priority)
 - [ ] `emit/` also produces `CMakeLists.txt`, VSCode `tasks.json`/
       `c_cpp_properties.json`, and `compile_commands.json` from the per-`.o` rule.
 - [ ] `emit/a2l.py` (ASAP2/A2L from the `Calibration`/`Signal` dataclasses) —
-      the static calibration description. The **XCP-on-UART slave** (live on-target
-      tuning over the console) is **DEFERRED (not urgent)**: A2L alone already
-      documents the tunables; live XCP is a follow-on only if on-target tuning is
-      actually needed.
+      the static calibration/measurement description for external tools.
 
 ### Phase 13 — Project/workspace + variant management (low priority)
 Today one `app.yaml` = one application; there is no ECU-configuration-set or
@@ -355,9 +345,6 @@ needs a small **kernel retarget**, so it is its own phase, not a profile drop-in
   non-preemptive RTA with a blocking term `B_i = max C of lower-prio tasks`.
   Conservative is a *feature* on an 8-task AVR. Store `T_i`/`C_i` per task to
   keep future RTA an option.
-- **A non-AVR target is a full port, not a YAML entry** — it breaks the emitter
-  layer *and* the kernel (context switch, PROGMEM, toolchain), so it is out of
-  scope; the project targets AVR MCUs only (see Phase 10).
 - **relpath hazard:** the generated Makefile embeds
   `python3 ../tools/erosgen.py app.yaml` (relpath app_dir→entrypoint). Moving the
   entrypoint changes that string and breaks the Makefile golden → keep the
