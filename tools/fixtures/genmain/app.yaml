@@ -23,5 +23,5 @@ resources:
 pool: { block_size: 8, blocks: 4 }
 simulink:
   model: appKnbSwt
-  dir: ../../../codegen
+  dir: ../../../tests/codegen
   rate_map: { Runnable: ctrl }   # appKnbSwt_Runnable() in TASK_CTRL

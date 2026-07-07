@@ -2,7 +2,7 @@
 
 App-agnostic, kernel-independent drivers (pure avr-libc + registers, no
 `eros.h`, no `config.h`) completing the peripheral coverage started by
-`reference-demo/uart.c` (USART0) and `pwm.c` (Timer1 PWM — the reference
+`tests/reference-demo/uart.c` (USART0) and `pwm.c` (Timer1 PWM — the reference
 demo now shares this driver too). Every ISR here is OSEK **Category 1** — it only counts,
 timestamps or moves bytes and never calls an OS service; tasks poll
 with atomic fetch functions. Blocking calls are hardware-bounded or
@@ -22,7 +22,7 @@ at a time. Done so far:
   a near-duplicate fixed-1 kHz `pwm.c`; it now **shares this one** (deleted its
   copy — the `pwm:` peripheral resolves to `drivers/pwm.c` at its 1 kHz
   defaults, byte-identical image), so PWM is `Pwm_*` repo-wide.
-- **Uart** (`reference-demo/uart.c`) — `Uart_Init` / `Uart_PutChar` /
+- **Uart** (`tests/reference-demo/uart.c`) — `Uart_Init` / `Uart_PutChar` /
   `Uart_Print{,_P,U16,Hex8}` / `Uart_GetChar` / `Uart_TxDropped` (was `UART_*`).
   The `UART_TX_SIZE` / `UART_RX_SIZE` geometry macros keep their names (config,
   not interface).
@@ -42,7 +42,7 @@ Every driver now uses AUTOSAR-MCAL-style `<Mod>_<Verb>` names.
 Gpt(timer0)/Eep(eeprom)/Dio+Icu(extint)/Acomp). The other AUTOSAR layers are:
 **Services** = the EROS kernel (`kernel/`: OS, plus EcuM-like startup via
 `StartupHook`, watchdog supervision, the mailbox+pool IPC); **ComplexDevice
-Driver** = `reference-demo/uart.c` (USART0 console). The generator threads the
+Driver** = `tests/reference-demo/uart.c` (USART0 console). The generator threads the
 `mcal/` subdir through the MCU profile file-map and the Makefile emitter (VPATH
 + `-I` per layer dir; source basenames stay flat), so a bound driver resolves to
 `drivers/mcal/<mod>.c` automatically.
@@ -69,7 +69,7 @@ MainFunction is rejected (`MAIN_FUNCTION_UNSUPPORTED`).
 
 Deliberately **not** drivers: Timer2 (kernel tick — untouchable),
 watchdog & sleep (kernel supervision/idle policy), USART0 (exists in
-`reference-demo/uart.c`), USART-MSPIM (niche — only useful when
+`tests/reference-demo/uart.c`), USART-MSPIM (niche — only useful when
 hardware SPI is occupied), debugWIRE/SPM self-programming (out of
 scope for application firmware).
 
@@ -113,7 +113,7 @@ drivers account for: it has no Timer2 (the OS tick lives on Timer3 — see
 the PORTC/PORTD (`PCINT1/2`) banks behind `#if defined(...)`. Two functional
 notes for the 32U4 (compile-clean, but mind the hardware): `adc.c` reaches ADC
 channels 0–7 (covers the Leonardo A0–A5; ADC8–13 would need `MUX5`), and the
-console `uart.c` (app-provided, `reference-demo/`) is USART-instance
+console `uart.c` (app-provided, `tests/reference-demo/`) is USART-instance
 parameterized via `uart_regs.h` — USART0 by default, USART1 on the 32U4 (which
 has no USART0) when erosgen emits `-DUART_USART=1` from the profile.
 

@@ -21,9 +21,9 @@ is the shipped `-flto` + `--gc-sections` image:
 | Whole demo image (LTO + `--gc-sections`), **gated** | ≤ 4096 B / ≤ 384 B | **3566 B Flash / 295 B RAM** |
 | Stack + idle RAM (reported separately) | — | 1753 B |
 
-`make -C reference-demo` builds, prints `avr-size` output and **fails the
+`make -C tests/reference-demo` builds, prints `avr-size` output and **fails the
 build** if a budget is exceeded — two gates: the app-agnostic kernel by the
-non-LTO `budget` target (`make -C reference-demo budget`), and the whole
+non-LTO `budget` target (`make -C tests/reference-demo budget`), and the whole
 shipped LTO image by the `size` target (`image_flash`/`image_ram` in
 `app.yaml`). UART rings and PWM are *application* RAM, so they never move
 the tiny kernel figure.
@@ -37,23 +37,6 @@ kernel/               app-agnostic kernel, reused by every application
   eros.h           public API + doc comments (semantics, error codes)
   eros.c           scheduler, tick ISR, alarms, resources, mailbox,
                       pool, stack canary, watchdog, .init3 WDT fix
-reference-demo/       the full reference application on the kernel:
-                      `make -C reference-demo` — see its README.md
-  app.yaml         its configuration ("OIL file"); the config.*/Makefile
-                      below are generated from it by tools/erosgen.py
-  config.h/.c      generated static config: tasks, priorities, alarms,
-                      resources, pool geometry, hooks, aliveness mask
-  main.c           integration layer: hooks + one-shot startup task + main()
-  asw_10ms.c/.h    TASK_BUTTON — scope PD3 + debounced button, IPC producer
-  asw_50ms.c/.h    TASK_CMD — scope PD4 + serial console + IPC consumer
-  asw_100ms.c/.h   TASK_RAMP — scope PD5 + Timer1 PWM breathing LED
-  asw_500ms.c/.h   TASK_STATUS — scope PD6 + status line + chained
-                      TASK_REPORT heartbeat (PB5)
-  asw_signals.c/.h cross-rate "rate transition" layer + status print
-  actuator.c/.h    polymorphic GPIO driver (OOP-in-C, vtables in PROGMEM)
-  uart.c/.h        interrupt-driven USART0 console (ring buffers)
-  pwm.c/.h         Timer1 fast-PWM breathing LED (OC1A/PB1)
-  Makefile         generated: warning-free flags, size/budget, flash target
 drivers/              app-agnostic drivers completing the ATmega328P
                       peripheral coverage: ADC, EEPROM, I2C, SPI,
                       INT/PCINT, Timer0 PWM, Timer1 input capture,
@@ -64,23 +47,26 @@ tools/erosgen/        the system configurator (uv/PyYAML): compiles each app's
                       app.yaml into config.*/Makefile (+ ASW skeletons), selects
                       peripherals, sizes RAM-dominant buffers, GENERATES THE RTE
                       from a `models:` section, and targets any MCU profile
-                      (`mcu/*.yaml`: atmega328p, atmega2560) — see tools/README.md
+                      (`mcu/*.yaml`: atmega328p, atmega2560, atmega32u4) — tools/README.md
 gui/                  optional PySide6 configurator over the engine: open/create
-                      a project, edit tasks/resources, activate + configure
-                      peripherals with conflict-aware pin/channel pickers, bind
-                      model ports (to drivers or ASW→ASW signals), live
+                      a project (or an erosproject.yaml workspace), edit
+                      tasks/resources, activate + configure peripherals with
+                      conflict-aware pin/channel pickers, bind model ports, live
                       diagnostics + memory budget, generate/build — see gui/README.md
-codegen/              Simulink / Embedded Coder output (ASW): drop
-                      <model>_ert_rtw here, kept frozen; README.md
-                      documents model configuration and data types
 rte/                  Runtime Environment: the single hand-written layer
                       binding a model's ports/params/runnable to the
                       drivers + OS (ASW→RTE→BSW) — see its README.md
-model/                the Simulink project itself (.slx/.sldd + test
-                      harness) that generates codegen/ (caches ignored)
-tests/                simavr simulation tests: on-chip self-checks +
-                      libsimavr host runner exercising every peripheral
-                      driver and the ASW→RTE→BSW model — see its README.md
+tests/                simavr simulation tests (on-chip self-checks + a libsimavr
+                      host runner over every driver and the ASW→RTE→BSW model),
+                      PLUS the non-shipping reference/model assets:
+  reference-demo/     the full reference application on the kernel:
+                      `make -C tests/reference-demo` — see its README.md.
+                      app.yaml + generated config.*/main.c/asw_*.c/Makefile,
+                      actuator.c, uart.c/uart_print.c console, pwm.c
+  codegen/            Simulink / Embedded Coder output (ASW): <model>_ert_rtw,
+                      kept frozen; README.md documents model config + data types
+  model/              the Simulink project itself (.slx/.sldd + test harness)
+                      that generates codegen/ (caches under cache/, gitignored)
 .github/workflows/    CI: build+budget, simavr peripheral/model matrix,
                       qemu boot smoke — see "Continuous integration" below
 ```
@@ -159,7 +145,7 @@ policy** table in `tools/README.md`.
 ## Reference demo
 
 One firmware exercising the whole kernel plus the two peripheral drivers
-(`uart.c`, `pwm.c`). See `reference-demo/README.md` for the wiring and
+(`uart.c`, `pwm.c`). See `tests/reference-demo/README.md` for the wiring and
 serial protocol.
 
 | Task | Prio | Release | Pins | Purpose |
@@ -190,7 +176,7 @@ drivers it links (`uart.c`) are separately proven in the simavr matrix.
 ## ASW structure & shared data (why there are no mutexes)
 
 The demo follows the structure recommended for Simulink/Embedded Coder
-output in `codegen/README.md` §4: **one C/H pair per task rate**
+output in `tests/codegen/README.md` §4: **one C/H pair per task rate**
 (`asw_10ms.c`, `asw_50ms.c`, …), a thin integration `main.c` (hooks +
 startup task only), and *no* application state shared between rate files
 through ad-hoc globals. Data crosses a rate boundary in exactly two
@@ -199,7 +185,7 @@ sanctioned ways:
 1. **Kernel IPC** — pool block + single-slot mailbox, wrapped in a
    `GetResource`/`ReleaseResource` pair (`RES_DEMO`) marking the handoff
    as one logical unit (button press → command task).
-2. **A signals module** — `reference-demo/asw_signals.c/.h`, the
+2. **A signals module** — `tests/reference-demo/asw_signals.c/.h`, the
    hand-written equivalent of Simulink's Rate Transition layer: every
    cross-rate signal is accessed only through its accessor functions.
 
@@ -207,7 +193,7 @@ Neither path needs a mutex or semaphore, **by design, not by
 omission**: the kernel is non-preemptive run-to-completion, so two
 tasks can never interleave and task↔task data races cannot exist —
 the same reason Embedded Coder's rate-transition buffers are never
-contended here (`codegen/README.md` §4). The only real concurrency
+contended here (`tests/codegen/README.md` §4). The only real concurrency
 hazard is task↔ISR sharing, and the rules for it are:
 
 - ISR-shared objects are `volatile`; single-byte accesses are naturally
@@ -225,17 +211,17 @@ hazard is task↔ISR sharing, and the rules for it are:
 
 ## Build & flash
 
-The `eros.sh` helper wraps the whole toolchain — check, install, build,
-flash:
+The `eros.sh` helper sets the machine up and launches the GUI (generating,
+building and flashing an app now live in the GUI + the per-app Makefiles):
 
 ```sh
-./eros.sh              # check the AVR toolchain is installed
-./eros.sh -install     # install anything missing (apt/dnf/pacman/brew/…)
-./eros.sh -build       # build the reference demo into ./build (gitignored)
-./eros.sh -flash       # auto-detect the board + baud, then flash
+./eros.sh              # check the environment is ready, then launch the GUI
+./eros.sh check        # verify avr-gcc, avr-libc, simavr, uv + GUI deps
+./eros.sh install      # install AVR toolchain, simavr, uv + GUI deps (apt/dnf/…)
+./eros.sh flash a.hex  # auto-detect the board + baud, then flash a built .hex
 ```
 
-`-flash` finds the serial port (`/dev/ttyUSB*`, `/dev/ttyACM*`,
+`flash` finds the serial port (`/dev/ttyUSB*`, `/dev/ttyACM*`,
 `/dev/cu.usb*`) and the bootloader baud (57600 old-bootloader Nano,
 then 115200 Optiboot) by probing the ATmega328P signature; override
 either with `EROS_PORT=` / `EROS_BAUD=`.
@@ -243,9 +229,9 @@ either with `EROS_PORT=` / `EROS_BAUD=`.
 Or drive the Makefiles directly:
 
 ```sh
-make -C reference-demo         # build + size + budget check (fails if over budget)
-make -C reference-demo flash   # avrdude, old-bootloader Nano (57600 baud)
-make -C reference-demo flash BAUD=115200 PORT=/dev/ttyACM0   # Optiboot boards
+make -C tests/reference-demo         # build + size + budget check (fails if over budget)
+make -C tests/reference-demo flash   # avrdude, old-bootloader Nano (57600 baud)
+make -C tests/reference-demo flash BAUD=115200 PORT=/dev/ttyACM0   # Optiboot boards
 ```
 
 Mandated flags (warning-free): `-Wall -Wextra -Werror -std=c99 -Os
@@ -258,7 +244,7 @@ Simulink/Embedded Coder models integrate through a layered, AUTOSAR-style
 architecture — no ad-hoc glue:
 
 ```
-ASW   codegen/<model>_ert_rtw/   generated algorithm: ports + runnable (frozen)
+ASW   tests/codegen/<model>_ert_rtw/   generated algorithm: ports + runnable (frozen)
 RTE   rte/                       the ONLY hand-written layer
 BSW   drivers/ (MCAL) + kernel/  drivers + EROS OS (frozen)
 ```

@@ -29,7 +29,7 @@ __pycache__/
 .codegraph/
 
 # Simulink / Embedded Coder caches & build intermediates (regenerable).
-# Generated *code* is kept under codegen/<model>_ert_rtw/; these are not.
+# Generated *code* is kept under tests/codegen/<model>_ert_rtw/; these are not.
 cache/
 slprj/
 tmwinternal/

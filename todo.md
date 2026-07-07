@@ -36,7 +36,7 @@ Tests: **53 engine** (`tools/test_erosgen.py`) + **37 GUI** (`gui/test_gui.py`);
 Compressed ledger; detail lives in git history. **Do not re-plan these.**
 
 - **Refactor spine** — `erosgen.py` split into the package above; `Diagnostic`
-  dataclass + strict/collect sink; golden-master net (`reference-demo`,
+  dataclass + strict/collect sink; golden-master net (`tests/reference-demo`,
   `genmain`, `model_rte`, `model_app`, `mega_gpio`, `asw_task`, `model_multi`).
 - **RTE end-to-end** — `parse/ert.py` (regex on the ExportToFile surface) →
   `bind.py` (adc/dio/pwm, direction + range checks) → `emit/rte.py`
@@ -175,7 +175,7 @@ peripheral means editing `validate.py` + `model.py` + an emitter.
 ### Phase 7 — BSW/MCAL layering
 `drivers/` is flat (`adc/eeprom/i2c/spi/timer0_pwm/…`) with no MCAL/Services
 stratification and no standardized module interface. **Staged** to keep the
-byte-identical `reference-demo` anchor safe (it ships app-local `pwm.c`/`uart.c`
+byte-identical `tests/reference-demo` anchor safe (it ships app-local `pwm.c`/`uart.c`
 with `PWM_*`/`UART_*` names and declares `pwm:`, so those modules are entangled
 with it and are migrated separately, not by a blind repo-wide rename).
 
@@ -184,25 +184,25 @@ with it and are migrated separately, not by a blind repo-wide rename).
       threaded through `bind.py` `DriverSpec`, `emit/rte.py`, both MCU profiles,
       the hand-written `rte/Rte.c` reference, and the `test_adc` simavr firmware;
       RTE goldens + `genmain/os_gen.h` regenerated. ADC is fully decoupled from
-      `reference-demo` (zero ADC there), so its goldens stayed byte-identical.
+      `tests/reference-demo` (zero ADC there), so its goldens stayed byte-identical.
       Verified: 63 engine + 37 GUI tests, ruff/mypy, `avr-gcc` builds
-      reference-demo (budget gates) + fixtures, `avr-nm` confirms `Adc_*` symbols.
+      tests/reference-demo (budget gates) + fixtures, `avr-nm` confirms `Adc_*` symbols.
       Note: kept the AUTOSAR *group* API (`Adc_ReadGroup`) out — single-channel
       blocking `Adc_ReadChannel` matches the 8-bit target; documented.
 - [x] **MCAL naming — Pwm + Uart** (increment 2): shared `drivers/pwm.c` →
       `Pwm_Init`/`Pwm_SetDutyCycle`/`Pwm_GetDutyCycle` (duty stays permille,
-      documented); `reference-demo/uart.c` + callers → `Uart_*` (geometry macros
+      documented); `tests/reference-demo/uart.c` + callers → `Uart_*` (geometry macros
       `UART_TX_SIZE/RX_SIZE` unchanged). Word-boundary renames guarded Timer0's
-      `T0PWM_Init` and the `-D` macros. reference-demo (heavy UART + PWM user)
+      `T0PWM_Init` and the `-D` macros. tests/reference-demo (heavy UART + PWM user)
       builds byte-identical with budget gates; `drivers/pwm.c` compiles with
-      `Pwm_*`; `test_uart` links `Uart_*`. **Deliberately left `reference-demo`'s
+      `Pwm_*`; `test_uart` links `Uart_*`. **Deliberately left `tests/reference-demo`'s
       app-local `pwm.c` as `PWM_*`** — it is a near-duplicate of the shared driver,
       so renaming both trips SonarCloud's new-code duplication gate.
 - [x] **Consolidate the duplicate Timer1 PWM driver** (increment 3): deleted
-      `reference-demo/pwm.{c,h}`; the `pwm:` peripheral now resolves to the shared
+      `tests/reference-demo/pwm.{c,h}`; the `pwm:` peripheral now resolves to the shared
       `drivers/pwm.c` (Pwm_*) at its 1 kHz defaults, and the demo's callers are
       `Pwm_*`. Duplication gone; PWM is `Pwm_*` repo-wide. **Image byte-identical**
-      (text 3630 / data 4 / bss 291 unchanged); only the reference-demo Makefile
+      (text 3630 / data 4 / bss 291 unchanged); only the tests/reference-demo Makefile
       golden changed (VPATH + `-I../drivers`, pwm.c local→shared). 63 tests + build
       + budget gates green.
 - [x] **MCAL naming — standalone drivers** (increment 4): `SPI_*`→`Spi_*`,
@@ -217,8 +217,8 @@ with it and are migrated separately, not by a blind repo-wide rename).
       `drivers/mcal/`; the `mcal/` subdir is threaded through the MCU profile
       source-map + the Makefile emitter (`_layer_dir`/`_basename`: source
       basenames stay flat, the layer dir goes on VPATH + `-I`). Services = the
-      EROS kernel; ComplexDeviceDriver = `reference-demo/uart.c`. Only the
-      Makefile goldens changed (`../drivers` → `../drivers/mcal`); reference-demo
+      EROS kernel; ComplexDeviceDriver = `tests/reference-demo/uart.c`. Only the
+      Makefile goldens changed (`../drivers` → `../drivers/mcal`); tests/reference-demo
       image byte-identical (3630/4/291). drivers gate + all simavr firmwares +
       RTE fixtures build; 63 tests; regen is a git-diff fixed point.
 - [x] **`<Mod>_MainFunction` scheduling** (increment 6): a driver declares a
@@ -231,7 +231,7 @@ with it and are migrated separately, not by a blind repo-wide rename).
       `Adc_MainFunction`. No drift (feature is opt-in; existing configs unchanged).
 - **Risk:** medium — renames break goldens; needs a coordinated regen. Doing it
       per-module (not all at once) contains the blast radius; ADC increment proved
-      the pattern with reference-demo untouched.
+      the pattern with tests/reference-demo untouched.
 
 ### Phase 8 — RTE maturity (residuals; multi-model already done)
 - [x] **Contract phase** (increment 2): each SWC gets a per-SWC `Rte_<SWC>.h`

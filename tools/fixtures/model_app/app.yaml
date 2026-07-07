@@ -17,7 +17,7 @@ resources:
 
 models:
   - name: appKnbSwt
-    codegen_dir: ../../../codegen/appKnbSwt_ert_rtw
+    codegen_dir: ../../../tests/codegen/appKnbSwt_ert_rtw
     runnable: appKnbSwt_Runnable
     rate_ms: 10
     wcet_ms: 2

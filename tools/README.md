@@ -121,7 +121,7 @@ new pin configured automatically.
 - Periods are multiples of the tick and ≤ the alarm range (32767 ticks).
 - **Schedulability**: Σ WCET of all periodic tasks ≤ the base (fastest)
   period — the non-preemptive run-to-completion rule from
-  `codegen/README.md` §4, enforced mechanically. WCET rounds up to whole
+  `tests/codegen/README.md` §4, enforced mechanically. WCET rounds up to whole
   ticks (never under-budget).
 - **Pin ownership matrix**: every pin a peripheral or `gpio` entry claims
   is checked for a single owner — SPI's SCK vs an LED on PB5, `icp` vs
@@ -191,7 +191,7 @@ simulink:                     # optional simple binding: calls model_step() in a
   rate_map: { step0: ctrl }   # generated glue calls ctrl_step0() in TASK_CTRL
 
 models:                       # optional: GENERATE the RTE for a Simulink SWC.
-  - name: appKnbSwt           #   erosgen parses codegen/appKnbSwt_ert_rtw/,
+  - name: appKnbSwt           #   erosgen parses tests/codegen/appKnbSwt_ert_rtw/,
     codegen_dir: ../codegen/appKnbSwt_ert_rtw   # type-checks the port bindings,
     runnable: appKnbSwt_Runnable                # emits Rte.h/Rte_Cfg.h/Rte.c,
     rate_ms: 10               #   and wires it as TASK_/ALARM_APPKNBSWT.
@@ -207,10 +207,10 @@ bind model ports, live diagnostics, memory budget, generate/build).
 
 ## Reference configs
 
-`reference-demo/app.yaml` regenerates the shipped firmware to a
+`tests/reference-demo/app.yaml` regenerates the shipped firmware to a
 **byte-identical** image — it is the worked example. Regenerate and diff
 to see for yourself:
 
 ```sh
-python3 tools/erosgen.py reference-demo/app.yaml && make -C reference-demo
+python3 tools/erosgen.py tests/reference-demo/app.yaml && make -C tests/reference-demo
 ```

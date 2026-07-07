@@ -9,7 +9,7 @@ MCU     := atmega328p
 F_CPU   := 16000000UL
 TARGET  := eros
 
-VPATH   := ../kernel ../drivers/mcal
+VPATH   := ../../kernel ../../drivers/mcal
 
 APP_SRCS := main.c actuator.c uart_print.c asw_signals.c asw_10ms.c asw_50ms.c asw_100ms.c asw_500ms.c uart.c
 SRCS     := $(APP_SRCS) pwm.c eros.c config.c
@@ -29,7 +29,7 @@ PERIPH_DEFS := -DUART_BAUD=9600UL -DUART_TX_SIZE=128u -DUART_RX_SIZE=64u
 CFLAGS  := -Wall -Wextra -Werror -std=c99 -Os -flto \
            -ffunction-sections -fdata-sections -fno-common \
            -mmcu=$(MCU) -DF_CPU=$(F_CPU) $(PERIPH_DEFS) \
-           -I. -I../kernel -I../drivers/mcal
+           -I. -I../../kernel -I../../drivers/mcal
 LDFLAGS := -Wl,--gc-sections -Wl,-Map=$(TARGET).map
 
 BUDGET_DIR    := build_budget
@@ -105,7 +105,7 @@ flash: $(TARGET).hex
 # Run this after editing app.yaml (config is NOT auto-rebuilt,
 # so a Python-less CI can still 'make' from committed output).
 config:
-	python3 ../tools/erosgen.py app.yaml
+	python3 ../../tools/erosgen.py app.yaml
 
 clean:
 	rm -rf $(OBJS) $(DEPS) $(BUDGET_DIR) \

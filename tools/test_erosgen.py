@@ -31,10 +31,10 @@ def _system_from(path):
 
 
 DEMOS = [
-    (REPO / "reference-demo" / "app.yaml", REPO / "reference-demo"),
+    (REPO / "tests" / "reference-demo" / "app.yaml", REPO / "tests" / "reference-demo"),
 ]
 
-# Golden fixture for the emitters reference-demo doesn't exercise (it ships a
+# Golden fixture for the emitters tests/reference-demo doesn't exercise (it ships a
 # hand-written main.c, so it has no os_gen.h). See fixtures/genmain/regen.py.
 GENMAIN = HERE / "fixtures" / "genmain"
 
@@ -64,7 +64,7 @@ def test_demos_makefile_golden():
 
 
 def test_genmain_skeleton_goldens():
-    """Pin the emitters reference-demo can't reach: os_gen.h, the generated
+    """Pin the emitters tests/reference-demo can't reach: os_gen.h, the generated
     main.c, and an asw skeleton with a Simulink step. Regenerate the .golden
     snapshots with fixtures/genmain/regen.py after an intentional change."""
     s = _system_from(GENMAIN / "app.yaml")
@@ -80,7 +80,7 @@ def test_genmain_skeleton_goldens():
 
 
 def test_priority_is_rate_monotonic():
-    s = _system_from(REPO / "reference-demo" / "app.yaml")
+    s = _system_from(REPO / "tests" / "reference-demo" / "app.yaml")
     prio = {t.name: t.priority for t in s.tasks}
     # autostart lowest, aperiodic next, then faster => higher.
     assert prio["STARTUP"] == 0
@@ -89,7 +89,7 @@ def test_priority_is_rate_monotonic():
 
 
 def test_resource_ceiling_is_highest_user():
-    s = _system_from(REPO / "reference-demo" / "app.yaml")
+    s = _system_from(REPO / "tests" / "reference-demo" / "app.yaml")
     demo = next(r for r in s.resources if r.name == "DEMO")
     assert demo.ceiling.name == "BUTTON"  # highest-priority of {BUTTON, CMD}
     uart = next(r for r in s.resources if r.name == "UART")
@@ -188,7 +188,7 @@ resources: [{ name: r, users: [a] }]
 
 
 def test_collect_diagnostics_clean_for_reference_demo():
-    yml = REPO / "reference-demo" / "app.yaml"
+    yml = REPO / "tests" / "reference-demo" / "app.yaml"
     diags = erosgen.collect_diagnostics(yaml.safe_load(yml.read_text()), yml)
     assert [d for d in diags if d.severity == "error"] == []
 
@@ -297,7 +297,7 @@ def test_profile_extends_cycle_guard():
 
 def test_parse_ert_appknbswt():
     from erosgen.parse import parse_model
-    mi = parse_model(REPO / "codegen" / "appKnbSwt_ert_rtw", "appKnbSwt")
+    mi = parse_model(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw", "appKnbSwt")
     assert mi.init_fn == "appKnbSwt_initialize"
     assert mi.runnable_fns == ("appKnbSwt_Runnable",)
     ins = {s.name: s for s in mi.inputs}
@@ -500,7 +500,7 @@ def _resolve_ports(ports):
     from erosgen.models import resolve_models
     doc = {"models": [{"name": "appKnbSwt", "rate_ms": 10,
                        "runnable": "appKnbSwt_Runnable",
-                       "codegen_dir": str(REPO / "codegen" / "appKnbSwt_ert_rtw"),
+                       "codegen_dir": str(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw"),
                        "ports": ports}]}
     sink = Diagnostics(strict=False)
     rms = resolve_models(doc, Path("."), sink)
@@ -617,7 +617,7 @@ def test_multi_model_stem_collision_rejected():
     # signal with the same stem must be flagged, not silently miscompiled.
     from erosgen import Diagnostics
     from erosgen.models import resolve_models
-    cg = str(REPO / "codegen" / "appKnbSwt_ert_rtw")
+    cg = str(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw")
     entry = {"name": "appKnbSwt", "codegen_dir": cg, "rate_ms": 10,
              "runnable": "appKnbSwt_Runnable",
              "ports": {"in": [{"signal": "IN_KnbVal_Z", "driver": "adc",
@@ -1147,7 +1147,7 @@ def test_schema_accepts_every_shipped_config():
     fixture (no system:) and is validated for shape too."""
     if not erosgen.schema_available():
         return
-    configs = [REPO / "reference-demo" / "app.yaml"]
+    configs = [REPO / "tests" / "reference-demo" / "app.yaml"]
     configs += sorted((HERE / "fixtures").glob("*/app.yaml"))
     for c in configs:
         sink = erosgen.validate_schema(yaml.safe_load(c.read_text()))
@@ -1190,7 +1190,7 @@ def test_schema_cli_flag_gates_generation():
                        "resources: [{ name: r, users: [a] }]\n")
         assert erosgen.main(["erosgen", str(bad), "--schema"]) == 1
         assert not (Path(tmp) / "config.h").exists()     # aborted before write
-    ok = REPO / "reference-demo" / "app.yaml"
+    ok = REPO / "tests" / "reference-demo" / "app.yaml"
     assert erosgen.main(["erosgen", str(ok), "--schema", "--check"]) == 0
 
 
@@ -1430,7 +1430,7 @@ def test_parser_tier_a_pycparser_matches_regex():
     if not available():
         return                                  # [parse] extra absent
     from erosgen.parse.ert import parse_model
-    d = REPO / "codegen" / "appKnbSwt_ert_rtw"
+    d = REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw"
     a, b = parse_model(d, "appKnbSwt"), parse_model_c(d, "appKnbSwt")
     assert {(s.name, s.ctype, s.direction) for s in a.signals} == \
         {(s.name, s.ctype, s.direction) for s in b.signals}
@@ -1541,7 +1541,7 @@ def test_workspace_end_to_end_generates_each_app():
     """A workspace routes through _generate once per app. --check writes nothing,
     so this exercises the wiring against a real, fully-valid app.yaml."""
     import tempfile
-    demo = REPO / "reference-demo" / "app.yaml"
+    demo = REPO / "tests" / "reference-demo" / "app.yaml"
     with tempfile.TemporaryDirectory() as d:
         wf = Path(d) / "erosproject.yaml"
         wf.write_text(f"name: ws\napps:\n  - {demo}\n  - {demo}\n")  # abs paths
@@ -1606,7 +1606,7 @@ def test_atmega32u4_uart_console_usart1():
     import tempfile
     if shutil.which("avr-gcc") is None:
         return
-    demo = REPO / "reference-demo"
+    demo = REPO / "tests" / "reference-demo"
     with tempfile.TemporaryDirectory() as d:
         r = subprocess.run(
             ["avr-gcc", "-Wall", "-Wextra", "-Werror", "-std=c99", "-Os",

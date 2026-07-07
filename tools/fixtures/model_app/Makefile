@@ -9,7 +9,7 @@ MCU     := atmega328p
 F_CPU   := 16000000UL
 TARGET  := knbdemo
 
-MODEL_DIR  := ../../../codegen/appKnbSwt_ert_rtw
+MODEL_DIR  := ../../../tests/codegen/appKnbSwt_ert_rtw
 MODEL_SRCS := $(filter-out ert_main.c,$(notdir $(wildcard $(MODEL_DIR)/*.c)))
 VPATH   := ../../../kernel $(MODEL_DIR) ../../../drivers/mcal
 

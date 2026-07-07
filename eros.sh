@@ -1,42 +1,24 @@
 #!/usr/bin/env bash
 #
-# eros.sh - toolchain helper for EROS (Embedded Realtime Operating System),
-#           the OSEK BCC1 AVR kernel in this repository.
+# eros.sh - environment setup + GUI launcher for EROS (the OSEK BCC1 AVR kernel
+#           and its erosgen configurator in this repository).
+#
+# Generating, building and flashing an application now live in the GUI
+# (`uv run -m gui`) and the per-app Makefiles, so this script's job is just to
+# get the machine ready and launch the configurator.
 #
 # Usage:
-#   ./eros.sh [-check]     verify the AVR toolchain is installed (default)
-#   ./eros.sh -install     install any missing toolchain components
-#   ./eros.sh -build       build the reference demo into ./build (gitignored)
-#   ./eros.sh -clean       remove ./build
-#   ./eros.sh -help
-#
-# The build compiles out-of-tree: nothing is written outside ./build, and
-# ./build is listed in .gitignore. The compiler flags below MUST stay in
-# sync with the project Makefiles (the same mandated warning-free set).
+#   ./eros.sh [gui]           check the environment is ready, then launch the GUI
+#   ./eros.sh check           verify avr-gcc, avr-libc, simavr, uv + GUI deps
+#   ./eros.sh install         install the AVR toolchain, simavr, uv and GUI deps
+#   ./eros.sh flash <f.hex>   auto-detect the board and flash a built .hex
+#   ./eros.sh help
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="$SCRIPT_DIR/build"
-
 MCU=atmega328p
 F_CPU=16000000UL
-
-# Mandated flag set - keep identical to reference-demo/Makefile (the same
-# warning-free set + the peripheral geometry from app.yaml).
-CFLAGS=(-Wall -Wextra -Werror -std=c99 -Os -flto
-        -ffunction-sections -fdata-sections -fno-common
-        -mmcu="$MCU" -DF_CPU="$F_CPU"
-        -DUART_BAUD=9600UL -DUART_TX_SIZE=128u -DUART_RX_SIZE=64u)
-LDFLAGS=(-Wl,--gc-sections)
-
-# Budgets (bytes), mirrored from the Makefile. flash/ram bound the
-# app-agnostic KERNEL (non-LTO eros.o+config.o); image_* bound the whole
-# shipped LTO image (avr-size text+data / data+bss).
-FLASH_BUDGET=3072
-RAM_BUDGET=128
-IMAGE_FLASH_BUDGET=4096
-IMAGE_RAM_BUDGET=384
 
 # ----- pretty output (degrades gracefully when not a TTY) ---------------
 if [[ -t 1 ]]; then
@@ -51,9 +33,7 @@ warn()  { printf '  %s[warn]%s %s\n'  "$C_Y" "$C_N" "$*"; }
 bad()   { printf '  %s[MISS]%s %s\n'  "$C_R" "$C_N" "$*"; }
 die()   { printf '%serror:%s %s\n' "$C_R" "$C_N" "$*" >&2; exit 1; }
 
-# ----- toolchain check --------------------------------------------------
-# Components: name, apt package, and whether it is required for a build.
-# avrdude is only needed to flash a board, so it is optional for a build.
+# ----- environment check ------------------------------------------------
 MISSING=0        # required components missing
 MISSING_OPT=0    # optional components missing
 
@@ -74,8 +54,8 @@ check_tool() {   # check_tool <command> <required:0|1> <hint>
 }
 
 check_avrlibc() {
-    # A working avr-gcc does not guarantee avr-libc headers + device
-    # support; prove it by compiling a tiny program for the target MCU.
+    # A working avr-gcc does not guarantee avr-libc headers + device support;
+    # prove it by compiling a tiny program for the target MCU.
     if ! command -v avr-gcc >/dev/null 2>&1; then
         bad "avr-libc      cannot test (avr-gcc missing)"
         MISSING=$((MISSING + 1)); return
@@ -91,28 +71,44 @@ check_avrlibc() {
     rm -f "$tmp"
 }
 
+check_uv_gui() {
+    # uv drives the Python env; the GUI needs the [gui] extra (PySide6 +
+    # ruamel.yaml) importable. (The engine, erosgen, is pure PyYAML.)
+    if command -v uv >/dev/null 2>&1; then
+        ok "$(printf '%-13s %s' uv "$(uv --version 2>/dev/null | head -n1 || true)")"
+    else
+        bad "$(printf '%-13s missing  (curl -LsSf https://astral.sh/uv/install.sh | sh)' uv)"
+        MISSING=$((MISSING + 1)); return
+    fi
+    if (cd "$SCRIPT_DIR" && uv run --extra gui python -c 'import PySide6, ruamel.yaml' >/dev/null 2>&1); then
+        ok "GUI deps      PySide6 + ruamel.yaml importable"
+    else
+        bad "GUI deps      missing  (./eros.sh install  ->  uv sync --extra gui)"
+        MISSING=$((MISSING + 1))
+    fi
+}
+
 do_check() {
-    head1 "EROS toolchain check ($MCU @ ${F_CPU%UL})"
-    check_tool make      1 "GNU make"
-    check_tool avr-gcc   1 "gcc-avr"
+    head1 "EROS environment check ($MCU @ ${F_CPU%UL})"
+    check_tool make        1 "GNU make"
+    check_tool avr-gcc     1 "gcc-avr"
     check_tool avr-objcopy 1 "binutils-avr"
-    check_tool avr-size  1 "binutils-avr"
-    check_tool avr-objdump 0 "binutils-avr, disassembly"
-    check_tool avr-nm    0 "binutils-avr, symbol sizes"
+    check_tool avr-size    1 "binutils-avr"
     check_avrlibc
-    check_tool avrdude   0 "avrdude, needed only to flash a board"
+    check_tool simavr      1 "simavr (functional simulator; libsimavr for tests/)"
+    check_uv_gui
+    check_tool avrdude     0 "avrdude, needed only to flash a board"
 
     echo
     if [[ "$MISSING" -eq 0 ]]; then
-        say "${C_G}All required components present.${C_N}"
+        say "${C_G}Environment ready.${C_N}"
         [[ "$MISSING_OPT" -gt 0 ]] && say "Some optional tools are missing (see above)."
-        say "Next: ${C_B}./eros.sh -build${C_N}"
+        say "Launch the configurator: ${C_B}./eros.sh${C_N}   (or ./eros.sh gui)"
         return 0
-    else
-        say "${C_R}$MISSING required component(s) missing.${C_N}"
-        say "Install them with: ${C_B}./eros.sh -install${C_N}"
-        return 1
     fi
+    say "${C_R}$MISSING required component(s) missing.${C_N}"
+    say "Install everything with: ${C_B}./eros.sh install${C_N}"
+    return 1
 }
 
 # ----- install ----------------------------------------------------------
@@ -124,10 +120,19 @@ detect_pm() {
     echo ""
 }
 
+install_uv() {
+    if command -v uv >/dev/null 2>&1; then ok "uv already installed"; return; fi
+    say "installing uv (astral.sh)..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    command -v uv >/dev/null 2>&1 \
+        || die "uv installed but not on PATH; open a new shell (or add ~/.local/bin to PATH) and re-run ./eros.sh install."
+}
+
 do_install() {
-    head1 "EROS toolchain install"
+    head1 "EROS environment install"
     local pm; pm=$(detect_pm)
-    [[ -z "$pm" ]] && die "no supported package manager found (apt/dnf/yum/pacman/zypper/apk/brew). Install gcc-avr, avr-libc, binutils-avr, avrdude and make manually."
+    [[ -z "$pm" ]] && die "no supported package manager (apt/dnf/yum/pacman/zypper/apk/brew). Install gcc-avr, avr-libc, binutils-avr, simavr, avrdude and make manually, then re-run ./eros.sh install for the uv/GUI deps."
 
     local sudo_cmd=""
     if [[ "$(id -u)" -ne 0 ]] && [[ "$pm" != "brew" ]]; then
@@ -135,29 +140,28 @@ do_install() {
         else die "not root and sudo not available; re-run as root."; fi
     fi
 
-    say "Package manager: $pm"
+    say "Package manager: $pm  (AVR toolchain + simavr)"
     case "$pm" in
         apt-get)
             $sudo_cmd apt-get update
-            $sudo_cmd apt-get install -y gcc-avr avr-libc binutils-avr avrdude make
+            $sudo_cmd apt-get install -y gcc-avr avr-libc binutils-avr avrdude make simavr libsimavr-dev
             ;;
         dnf|yum)
-            $sudo_cmd "$pm" install -y avr-gcc avr-libc avr-binutils avrdude make
+            $sudo_cmd "$pm" install -y avr-gcc avr-libc avr-binutils avrdude make simavr
             ;;
         pacman)
-            $sudo_cmd pacman -Sy --needed --noconfirm avr-gcc avr-libc avr-binutils avrdude make
+            $sudo_cmd pacman -Sy --needed --noconfirm avr-gcc avr-libc avr-binutils avrdude make simavr
             ;;
         zypper)
-            # openSUSE ships versioned cross compilers; try the common names.
-            $sudo_cmd zypper --non-interactive install cross-avr-gcc cross-avr-binutils avr-libc avrdude make \
-                || die "openSUSE package names vary by release; install a cross-avr-gcc*, cross-avr-binutils, avr-libc, avrdude and make manually."
+            $sudo_cmd zypper --non-interactive install cross-avr-gcc cross-avr-binutils avr-libc avrdude make simavr \
+                || die "openSUSE package names vary by release; install a cross-avr-gcc*, cross-avr-binutils, avr-libc, simavr, avrdude and make manually."
             ;;
         apk)
-            $sudo_cmd apk add gcc-avr avr-libc binutils-avr avrdude make
+            $sudo_cmd apk add gcc-avr avr-libc binutils-avr avrdude make simavr
             ;;
         brew)
             brew tap osx-cross/avr
-            brew install avr-gcc avrdude   # make ships with the Xcode CLT
+            brew install avr-gcc avrdude simavr   # make ships with the Xcode CLT
             ;;
         *)
             die "internal: unhandled package manager '$pm'"
@@ -165,99 +169,35 @@ do_install() {
     esac
 
     echo
+    install_uv
+    say "installing Python + GUI dependencies (uv sync --extra gui)..."
+    (cd "$SCRIPT_DIR" && uv sync --extra gui)
+
+    echo
     say "Install step finished; re-checking..."
     MISSING=0; MISSING_OPT=0
     do_check
 }
 
-# ----- build ------------------------------------------------------------
-# compile <src> <objdir> <inc1> [inc2...]  -> echoes the object path
-compile() {
-    local src=$1 objdir=$2; shift 2
-    local inc=() i
-    for i in "$@"; do inc+=("-I$i"); done
-    local obj="$objdir/$(basename "${src%.c}").o"
-    avr-gcc "${CFLAGS[@]}" "${inc[@]}" -MMD -MP -c -o "$obj" "$src"
-    printf '%s' "$obj"
+# ----- gui launcher -----------------------------------------------------
+do_gui() {
+    # uv + the GUI deps are required to even open the window; the AVR toolchain
+    # and simavr are only needed to Build / Simulate, so those are just warnings.
+    command -v uv >/dev/null 2>&1 || die "uv not found; run ./eros.sh install"
+    if ! (cd "$SCRIPT_DIR" && uv run --extra gui python -c 'import PySide6' >/dev/null 2>&1); then
+        die "GUI dependencies missing; run ./eros.sh install (uv sync --extra gui)"
+    fi
+    command -v avr-gcc >/dev/null 2>&1 || warn "avr-gcc missing - you can edit/generate but not Build (./eros.sh install)"
+    command -v simavr  >/dev/null 2>&1 || warn "simavr missing - functional simulation unavailable (./eros.sh install)"
+
+    head1 "Launching EROS Configurator"
+    cd "$SCRIPT_DIR"
+    exec uv run --extra gui python -m gui "$@"
 }
 
-link_hex() {     # link_hex <name> <outdir> <obj...>
-    local name=$1 outdir=$2; shift 2
-    avr-gcc "${CFLAGS[@]}" "${LDFLAGS[@]}" -Wl,-Map="$outdir/$name.map" \
-        -o "$outdir/$name.elf" "$@"
-    avr-objcopy -O ihex -R .eeprom "$outdir/$name.elf" "$outdir/$name.hex"
-    say "  -> $(realpath --relative-to="$SCRIPT_DIR" "$outdir/$name.elf") / .hex / .map"
-    avr-size -B "$outdir/$name.elf" | sed 's/^/     /'
-}
-
-# Budget check, mirroring the Makefile: a non-LTO KERNEL check (eros.o +
-# config.o) plus a whole-image gate on the shipped LTO eros.elf.
-budget_check() {
-    local bdir="$BUILD_DIR/eros/budget"
-    mkdir -p "$bdir"
-    local nolto=()
-    local f
-    for f in "${CFLAGS[@]}"; do [[ "$f" == "-flto" ]] || nolto+=("$f"); done
-    avr-gcc "${nolto[@]}" -I"$SCRIPT_DIR/reference-demo" -I"$SCRIPT_DIR/kernel" -c \
-        -o "$bdir/eros.o"   "$SCRIPT_DIR/kernel/eros.c"
-    avr-gcc "${nolto[@]}" -I"$SCRIPT_DIR/reference-demo" -I"$SCRIPT_DIR/kernel" -c \
-        -o "$bdir/config.o" "$SCRIPT_DIR/reference-demo/config.c"
-    avr-size -B "$bdir/eros.o" "$bdir/config.o" | awk -v fb="$FLASH_BUDGET" -v rb="$RAM_BUDGET" '
-        NR==2 { kflash += $1 + $2; kram = $2 + $3 }
-        NR==3 { kflash += $1 + $2; arena = $2 + $3 }
-        END {
-            printf("     kernel Flash %d / %d B, static RAM %d / %d B (arena %d B)\n",
-                   kflash, fb, kram, rb, arena)
-            if (kflash > fb || kram > rb) { print "     BUDGET EXCEEDED"; exit 1 }
-            else                          { print "     budgets OK" }
-        }'
-    # Whole shipped LTO image (the eros.elf link_hex already produced).
-    avr-size -B "$BUILD_DIR/eros/eros.elf" \
-        | awk -v fb="$IMAGE_FLASH_BUDGET" -v rb="$IMAGE_RAM_BUDGET" '
-        NR==2 {
-            flash = $1 + $2; ram = $2 + $3
-            printf("     whole image  %d / %d B Flash, %d / %d B RAM\n", flash, fb, ram, rb)
-            if (flash > fb || ram > rb) { print "     IMAGE BUDGET EXCEEDED"; exit 1 }
-            else                        { print "     image budgets OK" }
-        }'
-}
-
-do_build() {
-    command -v avr-gcc     >/dev/null 2>&1 || die "avr-gcc not found; run ./eros.sh -install"
-    command -v avr-objcopy >/dev/null 2>&1 || die "avr-objcopy not found; run ./eros.sh -install"
-    command -v avr-size    >/dev/null 2>&1 || die "avr-size not found; run ./eros.sh -install"
-
-    head1 "Building EROS into ./build"
-
-    # --- reference demo -----------------------------------------------
-    # Source list mirrors reference-demo/Makefile APP_SRCS (uart.c/pwm.c
-    # are the peripheral drivers selected in app.yaml).
-    local rd="$SCRIPT_DIR/reference-demo"
-    local od="$BUILD_DIR/eros"; mkdir -p "$od"
-    say "reference demo (eros):"
-    local objs=()
-    local rs
-    for rs in main.c actuator.c asw_signals.c asw_10ms.c asw_50ms.c \
-              asw_100ms.c asw_500ms.c uart.c pwm.c config.c; do
-        objs+=("$(compile "$rd/$rs" "$od" "$rd" "$SCRIPT_DIR/kernel")")
-    done
-    objs+=("$(compile "$SCRIPT_DIR/kernel/eros.c" "$od" "$rd" "$SCRIPT_DIR/kernel")")
-    link_hex eros "$od" "${objs[@]}"
-    budget_check
-
-    echo
-    say "${C_G}Build complete.${C_N} Artifacts under ./build (gitignored)."
-    say "Flash with: ${C_B}./eros.sh -flash${C_N}"
-}
-
-do_clean() {
-    rm -rf "$BUILD_DIR"
-    say "removed ./build"
-}
-
-# ----- flash ------------------------------------------------------------
-# Candidate serial ports (Linux ttyUSB/ttyACM, macOS cu.usb*). Only paths
-# that actually exist are printed - literal unmatched globs are skipped.
+# ----- flash (build now happens in the GUI / the app Makefile) ----------
+# Candidate serial ports (Linux ttyUSB/ttyACM, macOS cu.usb*). Only paths that
+# actually exist are printed - literal unmatched globs are skipped.
 detect_ports() {
     local p
     for p in /dev/ttyUSB* /dev/ttyACM* \
@@ -268,35 +208,20 @@ detect_ports() {
 }
 
 # Probe: does an ATmega328P answer on this port+baud via the arduino
-# (bootloader) programmer? No -U operation -> avrdude reads the signature
-# and exits; 0 means the device matched -p m328p.
+# (bootloader) programmer? Signature read only, no write.
 probe_target() {   # probe_target <port> <baud>
-    local port="$1"
-    local baud="$2"
-    avrdude -p m328p -c arduino -P "$port" -b "$baud" -qq >/dev/null 2>&1
+    avrdude -p m328p -c arduino -P "$1" -b "$2" -qq >/dev/null 2>&1
 }
 
 do_flash() {
     command -v avrdude >/dev/null 2>&1 \
-        || die "avrdude not found; run ./eros.sh -install (or install avrdude) to flash."
-
-    # --- select firmware ---------------------------------------------
-    local target=${1:-eros} hex is_path=0
-    case "$target" in
-        eros|reference|ref)          hex="$BUILD_DIR/eros/eros.hex" ;;
-        *.hex)                       hex="$target"; is_path=1 ;;
-        *) die "unknown flash target '$target' (use: eros | <file.hex>)" ;;
-    esac
-    if [[ "$is_path" -eq 0 ]] && [[ ! -f "$hex" ]]; then
-        say "firmware not built yet ($hex); building..."
-        do_build
-        echo
-    fi
+        || die "avrdude not found; run ./eros.sh install (or install avrdude) to flash."
+    local hex=${1:-}
+    [[ -z "$hex" ]] && die "usage: ./eros.sh flash <file.hex>  (build it in the GUI, or 'make -C <app-dir>')"
     [[ -f "$hex" ]] || die "firmware not found: $hex"
 
     head1 "Flashing $(basename "$hex")"
 
-    # --- identify the target (port + bootloader baud) ----------------
     local pport=${EROS_PORT:-} pbaud=${EROS_BAUD:-}
     local ports=() bauds=()
     if [[ -n "$pport" ]]; then
@@ -324,44 +249,40 @@ do_flash() {
 
     say "target: ${C_B}ATmega328P on $found_port @ $found_baud baud${C_N}"
     echo
-    avrdude -p m328p -c arduino -P "$found_port" -b "$found_baud" \
-            -U flash:w:"$hex":i
+    avrdude -p m328p -c arduino -P "$found_port" -b "$found_baud" -U flash:w:"$hex":i
     echo
     say "${C_G}Flashed${C_N} $hex -> $found_port"
 }
 
 usage() {
     cat <<'EOF'
-eros.sh - toolchain helper for EROS (Embedded Realtime Operating System),
-          the OSEK BCC1 AVR kernel in this repository.
+eros.sh - environment setup + GUI launcher for EROS.
+
+Generating, building and flashing an application live in the GUI
+(`uv run -m gui`) and the per-app Makefiles; this script gets the machine
+ready and launches the configurator.
 
 Usage:
-  ./eros.sh [-check]         verify the AVR toolchain is installed (default)
-  ./eros.sh -install         install any missing toolchain components
-  ./eros.sh -build           build the reference demo into ./build (gitignored)
-  ./eros.sh -flash [target]  auto-detect the board and flash it
-                             target: eros (default) | <file.hex>
-  ./eros.sh -clean           remove ./build
-  ./eros.sh -help
+  ./eros.sh [gui]           check the environment is ready, then launch the GUI
+  ./eros.sh check           verify avr-gcc, avr-libc, simavr, uv + GUI deps
+  ./eros.sh install         install the AVR toolchain, simavr, uv and GUI deps
+                            (apt/dnf/pacman/zypper/apk/brew + astral.sh + uv sync)
+  ./eros.sh flash <f.hex>   auto-detect the board + baud, then flash a built .hex
+  ./eros.sh help
 
-The build compiles out-of-tree into ./build (which is gitignored); the
-reference demo also gets the same kernel + whole-image budget checks the
-Makefile runs.
-
--flash auto-detects the serial port (/dev/ttyUSB*, /dev/ttyACM*,
-/dev/cu.usb* on macOS) and the bootloader baud (57600 old-bootloader
-Nano, then 115200 Optiboot) by probing the ATmega328P signature.
-Override with EROS_PORT and/or EROS_BAUD.
+flash auto-detects the serial port (/dev/ttyUSB*, /dev/ttyACM*, /dev/cu.usb*
+on macOS) and the bootloader baud (57600 old-bootloader Nano, then 115200
+Optiboot) by probing the ATmega328P signature. Override with EROS_PORT and/or
+EROS_BAUD.
 EOF
 }
 
 # ----- dispatch ---------------------------------------------------------
-case "${1:--check}" in
-    -check|--check|check|"") do_check ;;
-    -install|--install|install) do_install ;;
-    -build|--build|build) do_build ;;
-    -flash|--flash|flash) shift || true; do_flash "${1:-eros}" ;;
-    -clean|--clean|clean) do_clean ;;
-    -h|-help|--help|help) usage ;;
+case "${1:-gui}" in
+    gui|-gui|--gui)             shift 2>/dev/null || true; do_gui "$@" ;;
+    check|-check|--check)       do_check ;;
+    install|-install|--install) do_install ;;
+    flash|-flash|--flash)       shift 2>/dev/null || true; do_flash "${1:-}" ;;
+    -h|-help|--help|help)       usage ;;
     *) printf 'unknown option: %s\n\n' "$1" >&2; usage; exit 2 ;;
 esac

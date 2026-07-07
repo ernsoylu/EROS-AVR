@@ -405,7 +405,7 @@ uint8_t Uart_PutChar(char c)
 }
 
 /* Uart_Print / Uart_Print_P / Uart_PrintU16 / Uart_PrintHex8 are the shared,
- * transport-independent formatters - they live once in reference-demo/
+ * transport-independent formatters - they live once in tests/reference-demo/
  * uart_print.c (a usb_cdc console app links it alongside this file). */
 
 uint8_t Uart_GetChar(char *c)

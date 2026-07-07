@@ -9,7 +9,7 @@ MCU     := atmega328p
 F_CPU   := 16000000UL
 TARGET  := multidemo
 
-MODEL_DIR1  := ../../../codegen/appKnbSwt_ert_rtw
+MODEL_DIR1  := ../../../tests/codegen/appKnbSwt_ert_rtw
 MODEL_DIR2  := motor_ert_rtw
 MODEL_SRCS := $(filter-out ert_main.c,$(sort $(notdir $(wildcard $(MODEL_DIR1)/*.c) $(wildcard $(MODEL_DIR2)/*.c))))
 VPATH   := ../../../kernel $(MODEL_DIR1) $(MODEL_DIR2) ../../../drivers/mcal

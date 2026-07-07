@@ -33,7 +33,7 @@ EROS-TEST: FAIL <tag>
   channel (deliberately independent of the interrupt-driven production
   UART driver, so a test can exercise that driver without a conflict).
 - `firmware/test_<peripheral>.c` — one image per peripheral, linking the
-  real driver source from `../drivers` (or `../reference-demo`).
+  real driver source from `../drivers` (or `reference-demo`).
 - `host/runtest.c` — links `libsimavr`, loads the ELF, applies external
   stimulus (ADC volts, GPIO edges, SPI slave echo), captures the UART
   stream, and turns the sentinel into an exit code (`0` pass, `1` fail,
