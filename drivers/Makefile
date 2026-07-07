@@ -17,7 +17,8 @@ F_CPU   := 16000000UL
 
 # MCAL peripheral drivers live under mcal/ (BSW layering, Phase 7).
 VPATH   := mcal
-SRCS    := adc.c eeprom.c i2c.c spi.c extint.c pwm.c timer0_pwm.c icp.c acomp.c
+SRCS    := adc.c eeprom.c i2c.c spi.c extint.c pwm.c timer0_pwm.c icp.c acomp.c \
+           usb_cdc.c
 OBJS    := $(SRCS:.c=.o)
 DEPS    := $(SRCS:.c=.d)
 

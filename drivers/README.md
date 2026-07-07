@@ -115,8 +115,14 @@ notes for the 32U4 (compile-clean, but mind the hardware): `adc.c` reaches ADC
 channels 0–7 (covers the Leonardo A0–A5; ADC8–13 would need `MUX5`), and the
 console `uart.c` (app-provided, `reference-demo/`) is USART-instance
 parameterized via `uart_regs.h` — USART0 by default, USART1 on the 32U4 (which
-has no USART0) when erosgen emits `-DUART_USART=1` from the profile. A native USB
-CDC console is deliberately out of scope.
+has no USART0) when erosgen emits `-DUART_USART=1` from the profile.
+
+The 32U4 also has a **native USB CDC-ACM console** — `mcal/usb_cdc.c`, selected
+with `peripherals: { usb_cdc: {} }`. It exports the **same `Uart_*` API** (a
+drop-in for `uart.c`, no external adapter) over the on-chip USB, and compiles to
+an empty TU on parts without a USB controller (guarded by `#if defined(USBCON)`),
+so it stays in the all-MCU gate. The stack is compile/link-verified; USB
+enumeration is validated on hardware (CI has no USB host).
 
 ## Concurrency contract (same as the rest of the repo)
 
