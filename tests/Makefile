@@ -47,7 +47,7 @@ RUNNER      := $(BUILD)/runtest
 # Pure-firmware tests need no host stimulus; stimulus tests inject
 # ADC voltages / SPI echo / GPIO edges from the host side.
 
-DRV_uart        := $(REFDEMO)/uart.c
+DRV_uart        := $(REFDEMO)/uart.c $(REFDEMO)/uart_print.c
 DRV_eeprom      := $(DRIVERS)/mcal/eeprom.c
 DRV_timer0_pwm  := $(DRIVERS)/mcal/timer0_pwm.c
 DRV_adc         := $(DRIVERS)/mcal/adc.c

@@ -1566,6 +1566,31 @@ def test_extint_driver_compiles_for_32u4():
         assert r.returncode == 0, r.stderr
 
 
+def test_atmega32u4_usb_cdc_console():
+    """Native USB CDC console: a first-class 32U4 console peripheral (drop-in
+    Uart_* API), compiling for the 32U4 and an empty TU on non-USB parts."""
+    from erosgen.mcu import load_profile
+    p = load_profile("atmega32u4")
+    assert "usb_cdc" in p.known_peripherals
+    assert p.driver_init.get("usb_cdc") == "Uart_Init();"   # same console API
+    assert p.driver_header.get("usb_cdc") == "usb_cdc.h"
+    import shutil
+    import subprocess
+    import tempfile
+    if shutil.which("avr-gcc") is None:
+        return
+    mcal = REPO / "drivers" / "mcal"
+    # Builds for the 32U4 (USB device) and is a no-op where there's no USBCON.
+    for mcu in ("atmega32u4", "atmega328p"):
+        with tempfile.TemporaryDirectory() as d:
+            r = subprocess.run(
+                ["avr-gcc", "-Wall", "-Wextra", "-Werror", "-std=c99", "-Os",
+                 "-mmcu=" + mcu, "-DF_CPU=16000000UL", f"-I{mcal}",
+                 "-c", str(mcal / "usb_cdc.c"), "-o", str(Path(d) / "u.o")],
+                capture_output=True, text=True)
+            assert r.returncode == 0, r.stderr
+
+
 def test_atmega32u4_uart_console_usart1():
     """The 32U4 console is USART1: the profile carries uart_instance=1, the engine
     emits -DUART_USART=1 (not for 328P/2560), and uart.c builds on USART1."""

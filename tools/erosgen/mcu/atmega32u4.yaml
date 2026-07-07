@@ -7,24 +7,24 @@
 # -DEROS_TICK_TIMER=3 and kernel/eros_tick.h aliases the registers. The 328P/
 # 2560 (Timer2) object code is byte-identical; only the 32U4 changes.
 #
-# Console: the 32U4's USB is NATIVE (a USB CDC device), not a USART-to-USB
-# bridge like the Uno/Nano. The `uart` driver here targets the on-chip USART1
-# (D0/D1 = PD2/PD3), which works with an EXTERNAL USB-serial adapter; a native
-# USB CDC ComplexDeviceDriver is out of scope. Board silk aliases match the
-# Leonardo header (the Micro shares the pinout; its silk labels differ).
+# Console: TWO options. (1) `uart` targets the on-chip USART1 (D0/D1 = PD2/PD3)
+# for an EXTERNAL USB-serial adapter; (2) `usb_cdc` is a native USB CDC-ACM
+# console (drivers/mcal/usb_cdc.c) using the 32U4's on-chip USB - the same
+# `Uart_*` API, no adapter. Pick one (both export Uart_Init/PutChar/...). Board
+# silk aliases match the Leonardo header (the Micro shares the pinout).
 #
-# Status: the KERNEL (Timer3 tick), the MCAL drivers, and the UART console all
-# build -Werror for the 32U4 (`make -C drivers check-mcus`; uart.c on USART1 via
-# `uart_instance` below). extint.c guards the PORTC/PORTD pin-change banks the
-# 32U4 lacks; adc.c covers ADC0-7 (Leonardo A0-A5). A native USB CDC console is
-# the only deliberate omission (out of scope; external USB-serial on USART1).
+# Status: the KERNEL (Timer3 tick), the MCAL drivers, and BOTH consoles build
+# -Werror for the 32U4 (`make -C drivers check-mcus`; USART1 via `uart_instance`;
+# native USB CDC via usb_cdc.c). extint.c guards the PORTC/PORTD pin-change banks
+# the 32U4 lacks; adc.c covers ADC0-7 (Leonardo A0-A5). The USB CDC stack is
+# compile/link-verified; enumeration is validated on hardware (CI has no host).
 # =====================================================================
 name: atmega32u4
 board: Arduino Leonardo       # friendly board name shown in the GUI board picker
 
 # Console USART. The 32U4 has NO USART0 - only USART1 (D0/D1) - so uart.c builds
-# with -DUART_USART=1 (erosgen emits it; see reference-demo/uart_regs.h). A native
-# USB CDC console is out of scope; use an external USB-serial adapter on USART1.
+# with -DUART_USART=1 (erosgen emits it; see reference-demo/uart_regs.h). For a
+# no-adapter console instead, use the `usb_cdc` peripheral (native USB CDC-ACM).
 uart_instance: 1
 
 # PORTB, PORTC, PORTD, PORTE, PORTF (no PORTA; PORTE/F are sparse).
@@ -76,6 +76,7 @@ aliases:
 # themselves need a 32U4 register port (USART1 vs USART0, etc.).
 peripherals:
   uart:       uart.c
+  usb_cdc:    mcal/usb_cdc.c     # native USB CDC-ACM console (drop-in for uart)
   pwm:        mcal/pwm.c
   adc:        mcal/adc.c
   eeprom:     mcal/eeprom.c
@@ -88,6 +89,7 @@ peripherals:
 # PD2/PD3; TWI on PD0/PD1; SPI on PB0..PB3.
 peripheral_pins:
   uart:       [PD2, PD3]              # RXD1, TXD1 (USART1)
+  usb_cdc:    []                      # on-chip USB D+/D- (fixed pins, not GPIO)
   pwm:        [PB5]                    # OC1A
   i2c:        [PD1, PD0]              # SDA, SCL
   spi:        [PB0, PB2, PB3, PB1]    # SS, MOSI, MISO, SCK
@@ -101,6 +103,7 @@ conflicts:
 
 driver_init:
   uart:       "Uart_Init();"
+  usb_cdc:    "Uart_Init();"          # same console API, backed by USB CDC
   pwm:        "Pwm_Init();"
   adc:        "Adc_Init();"
   i2c:        "I2c_Init();"
@@ -114,6 +117,7 @@ main_functions:
 
 driver_header:
   uart:       uart.h
+  usb_cdc:    usb_cdc.h
   pwm:        pwm.h
   adc:        adc.h
   eeprom:     eeprom.h
