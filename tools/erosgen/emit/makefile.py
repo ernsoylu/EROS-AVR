@@ -66,7 +66,7 @@ def uart_instance_def(profile):
     """The -DUART_USART=<n> override for uart.c's console USART, from the profile's
     `uart_instance`. Returns "" for the USART0 default (328P/2560) so their
     Makefiles stay byte-identical; " -DUART_USART=1" selects USART1 on the 32U4
-    (which has no USART0) - see reference-demo/uart_regs.h."""
+    (which has no USART0) - see tests/reference-demo/uart_regs.h."""
     n = getattr(profile, "uart_instance", 0)
     return "" if n == 0 else f" -DUART_USART={n}"
 

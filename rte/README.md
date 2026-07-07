@@ -5,7 +5,7 @@ the application software (Simulink models) to the basic software (drivers
 + the EROS OS), AUTOSAR-style.
 
 ```
-ASW   codegen/<model>_ert_rtw/     generated algorithm: ports + runnable
+ASW   tests/codegen/<model>_ert_rtw/     generated algorithm: ports + runnable
  │                                  (frozen — never edited)
 RTE   rte/                          THIS layer — the only thing that changes
  │                                  port data flow · scheduling
@@ -52,7 +52,7 @@ rte/
 ```
 
 Build (see `tests/Makefile`): compile `Rte.c` + the generated model +
-the bound drivers, with `-Irte -Icodegen/<model>_ert_rtw`. It builds
+the bound drivers, with `-Irte -Itests/codegen/<model>_ert_rtw`. It builds
 warning-free under the project flags (`-Wall -Wextra -Werror -std=c99
 -Os -flto`).
 
@@ -75,7 +75,7 @@ generates the `Makefile` / `config.h` / `config.c`. Schema:
 ```yaml
 models:
   - name: appKnbSwt
-    codegen_dir: codegen/appKnbSwt_ert_rtw
+    codegen_dir: tests/codegen/appKnbSwt_ert_rtw
     init:     appKnbSwt_initialize      # ASW entry points
     runnable: appKnbSwt_Runnable
     rate_ms:  10                        # -> EROS task + cyclic alarm

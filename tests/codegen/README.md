@@ -3,7 +3,7 @@
 > **Integration lives in `rte/`, not here.** Generated code in this folder
 > is the **ASW** and is kept frozen. The hand-written binding to the
 > drivers and OS (port data flow, calibration, runnable→task scheduling)
-> is the **RTE** layer in [`rte/`](../rte/README.md) — the worked example
+> is the **RTE** layer in [`rte/`](../../rte/README.md) — the worked example
 > (`appKnbSwt`) and the future `erosgen` generation schema are documented
 > there. The §3–§5 "glue in codegen/" pattern below is the earlier
 > approach, superseded by the ASW→RTE→BSW layering.
@@ -140,7 +140,7 @@ Available drivers and how to bind them:
 - **GPIO** — read `PINx`, write `PORTx` directly in the glue (direction
   and pull-ups configured once in `StartupHook()`). For clean toggles
   use the hardware toggle `PINx = (1<<bit)` (single atomic store).
-- **PWM** — `reference-demo/pwm.c`: Timer1 fast PWM, 1 kHz on
+- **PWM** — `../reference-demo/pwm.c`: Timer1 fast PWM, 1 kHz on
   OC1A/PB1 (D9); `PWM_SetDutyPermille(uint16 0..1000)`, true-off at 0.
   OC1B/PB2 (D10) can be added the same way. **Timer2 is the OS tick —
   drivers must never touch it**; Timer0 is still free.
@@ -149,7 +149,7 @@ Available drivers and how to bind them:
   plus Vcc-measurement and raw temperature internal channels.
   `ADC_Init()` from `StartupHook()`, `ADC_Read(ch)` in the glue.
 
-- **UART** — `reference-demo/uart.c` (interrupt-driven,
+- **UART** — `../reference-demo/uart.c` (interrupt-driven,
   non-blocking) for telemetry/tuning. Print from a *slow* housekeeping
   task, never from control rates or hooks.
 
@@ -274,7 +274,7 @@ codegen/
     ert_main.c         example main - MUST NOT be compiled (see below)
 ```
 
-Integrating into `reference-demo/Makefile`. The three touch points are
+Integrating into `../reference-demo/Makefile`. The three touch points are
 `MODEL_DIR`, `VPATH`/`SRCS`, and `CFLAGS`:
 
 ```make

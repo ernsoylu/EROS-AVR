@@ -7,8 +7,8 @@
 
 system:
   name: eros
-  kernel_dir: ../kernel        # kernel lives in the repo root's kernel/
-  drivers_dir: ../drivers      # where shared peripheral drivers resolve
+  kernel_dir: ../../kernel        # kernel is at the repo root (two levels up)
+  drivers_dir: ../../drivers      # where shared peripheral drivers resolve
   tick_hz: 1000
   hooks: { startup: true, error: true, shutdown: true }
   # Two gates. flash/ram bound the app-agnostic KERNEL (eros.o+config.o,

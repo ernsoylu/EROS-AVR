@@ -24,8 +24,8 @@ F_CPU       := 16000000UL
 
 ROOT        := ..
 DRIVERS     := $(ROOT)/drivers
-REFDEMO     := $(ROOT)/reference-demo
-CODEGEN     := $(ROOT)/codegen
+REFDEMO     := reference-demo
+CODEGEN     := codegen
 MODEL_RTW   := $(CODEGEN)/appKnbSwt_ert_rtw
 RTE         := $(ROOT)/rte
 BUILD       := build

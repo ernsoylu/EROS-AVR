@@ -1,7 +1,7 @@
 # EROS reference demo — a full application on the kernel
 
 A complete small firmware exercising the whole **EROS** (Embedded Realtime
-Operating System) **OSEK BCC1 kernel** (compiled from `../kernel/`
+Operating System) **OSEK BCC1 kernel** (compiled from `../../kernel/`
 unchanged — only the static configuration in this folder differs per
 application, the OSEK "one kernel, per-application config" model).
 

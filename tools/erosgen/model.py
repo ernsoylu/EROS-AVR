@@ -428,7 +428,7 @@ class System:
         # ---- mode groups (Rte_Modes.h/.c) --------------------------------
         self.modes = self._parse_modes(doc.get("modes", []) or [], sink)
 
-        # ---- schedulability gate (codegen/README.md par.4) ---------------
+        # ---- schedulability gate (tests/codegen/README.md par.4) ---------------
         if self.periodic and all(t.period_ticks is not None for t in self.periodic):
             base = self.periodic[0].period_ticks
             load = sum(t.wcet_ticks for t in self.periodic)

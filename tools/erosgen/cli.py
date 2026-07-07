@@ -12,7 +12,7 @@ Usage:
 
     --check   validate + report only, write nothing
 
-Design rules encoded here (see README.md / codegen/README.md):
+Design rules encoded here (see README.md / tests/codegen/README.md):
   * TaskID == static priority == ready-mask bit; max 8 tasks.
   * Priorities are assigned rate-monotonically: fastest period =
     highest priority; aperiodic (activated/chained) tasks sit below

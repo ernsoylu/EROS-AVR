@@ -16,7 +16,7 @@ from PySide6.QtCore import Qt  # noqa: E402
 from gui.project import ProjectModel  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
-REF = REPO / "reference-demo" / "app.yaml"
+REF = REPO / "tests" / "reference-demo" / "app.yaml"
 MODEL_APP = REPO / "tools" / "fixtures" / "model_app" / "app.yaml"
 
 
@@ -66,7 +66,7 @@ def test_projectmodel_set_mcu_and_budget():
     p = ProjectModel(REF)
     assert "atmega2560" in p.available_mcus()
     b = p.budget()
-    # reference-demo: 4x8 pool arena, 128+64 uart rings
+    # tests/reference-demo: 4x8 pool arena, 128+64 uart rings
     assert b["arena"] == 32 and b["rings"] == 192
     p.set_mcu("attiny85")
     assert "UNKNOWN_MCU" in {d.code for d in p.diagnostics()}
@@ -122,7 +122,7 @@ def test_projectmodel_board_labels_and_resources():
 def test_projectmodel_interfaces_and_unbind():
     p = ProjectModel()
     p.new("d", "atmega328p")
-    cg = str(REPO / "codegen" / "appKnbSwt_ert_rtw")
+    cg = str(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw")
     name, _s, runnable = p.model_signals(cg)
     p.add_model(name, cg, runnable, rate_ms=10)
     rows = p.model_interfaces(name)
@@ -210,7 +210,7 @@ def test_mainwindow_new_project():
 def test_projectmodel_add_model_and_bind():
     p = ProjectModel()
     p.new("swc_demo", "atmega328p")
-    cg = str(REPO / "codegen" / "appKnbSwt_ert_rtw")
+    cg = str(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw")
     name, sigs, runnable = p.model_signals(cg)
     assert name == "appKnbSwt" and runnable == "appKnbSwt_Runnable"
     assert ("IN_KnbVal_Z", "uint16_T", "in") in sigs
@@ -248,7 +248,7 @@ def test_mainwindow_model_page_binds_inline():
     _app()
     p = ProjectModel()
     p.new("swc_demo", "arduino_uno")
-    cg = str(REPO / "codegen" / "appKnbSwt_ert_rtw")
+    cg = str(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw")
     name, _sigs, runnable = p.model_signals(cg)
     p.add_model(name, cg, runnable, rate_ms=10)
     w = MainWindow(p)
@@ -318,7 +318,7 @@ def test_mainwindow_priority_dropdown_interleaves_kinds():
     p.new("demo", "arduino_uno")
     p.add_task("ctrl", period_ms=100, wcet_ms=1)
     p.make_asw_task("ctrl")
-    cg = str(REPO / "codegen" / "appKnbSwt_ert_rtw")
+    cg = str(REPO / "tests" / "codegen" / "appKnbSwt_ert_rtw")
     name, _s, runnable = p.model_signals(cg)
     p.add_model(name, cg, runnable, rate_ms=100)
     order0 = [x["name"] for x in p.schedule() if x["period_ms"] == 100]

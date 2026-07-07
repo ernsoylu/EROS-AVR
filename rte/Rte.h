@@ -5,7 +5,7 @@
  *
  * Layering (AUTOSAR-style):
  *
- *     ASW   codegen/appKnbSwt_ert_rtw/   pure algorithm, ports + runnable
+ *     ASW   tests/codegen/appKnbSwt_ert_rtw/   pure algorithm, ports + runnable
  *      |                                  (generated - never edited)
  *     RTE   rte/                          THIS layer: port data flow,
  *      |                                  calibration, runnable->task
