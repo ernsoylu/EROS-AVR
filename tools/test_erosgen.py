@@ -1659,6 +1659,30 @@ def test_startup_hook_off_still_inits_drivers():
     assert on.count("Board_ConfigurePins()") == 1
 
 
+def test_param_header_optional_intfc_mandatory():
+    """_Intfc.h (ports) and <model>.h (entry points) are required; _Param.h
+    (calibrations) is OPTIONAL - a model with no tunable parameters parses with
+    empty calibrations instead of failing."""
+    import tempfile
+    from erosgen.parse import parse_model
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d)
+        (p / "m_Intfc.h").write_text("extern uint16_T IN_Speed_Z;\n")
+        (p / "m.h").write_text(
+            "extern void m_initialize(void);\nextern void m_step(void);\n")
+        mi = parse_model(p, "m")                       # no _Param.h present
+        assert [s.name for s in mi.signals] == ["IN_Speed_Z"]
+        assert mi.calibrations == () and mi.init_fn == "m_initialize"
+        (p / "m_Param.h").write_text("extern uint8_T Thr_Pc;\n")
+        assert len(parse_model(p, "m").calibrations) == 1   # now parsed
+        (p / "m_Intfc.h").unlink()                     # _Intfc.h stays required
+        try:
+            parse_model(p, "m")
+            raise AssertionError("expected FileNotFoundError for missing _Intfc.h")
+        except FileNotFoundError:
+            pass
+
+
 def _run_standalone():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

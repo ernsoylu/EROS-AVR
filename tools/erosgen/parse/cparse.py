@@ -74,11 +74,16 @@ def parse_model_c(codegen_dir, model_name):
                 f"erosgen: model '{model_name}': expected {p} (parser: c)")
         return p.read_text()
 
+    def read_optional(suffix):
+        p = d / f"{model_name}{suffix}"
+        return p.read_text() if p.exists() else ""
+
     parser = CParser()
     # pycparser handles the narrow, struct-free port/param surface (more robust
     # than the regex for multi-line / qualified declarations)...
     sig_data, _ = _walk(read("_Intfc.h"), parser)
-    cal_data, _ = _walk(read("_Param.h"), parser)
+    param = read_optional("_Param.h")   # optional: no params -> no _Param.h
+    cal_data, _ = _walk(param, parser) if param else ([], [])
     # ...but the full <model>.h carries rtw structs/typedefs that need the whole
     # rtwtypes include tree, so the void(void) entry points stay a robust regex.
     funcs = [m.group(1) for m in _EXTERN_FUNC.finditer(read(".h"))]
