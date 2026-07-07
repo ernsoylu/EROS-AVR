@@ -15,7 +15,7 @@ For a model named `<model>`, erosgen reads exactly three files from the
 | File | Contents erosgen parses | Storage class |
 |---|---|---|
 | `<model>_Intfc.h` | `extern <rtwtype> <IN_*\|OUT_*>[dim];` — the ports | **ExportToFile** on each root inport/outport |
-| `<model>_Param.h` | `#define <NAME> <value>` and `extern <rtwtype> <NAME>;` — calibrations | **Define** (macro) or **ExportToFile** (tunable) |
+| `<model>_Param.h` (optional) | `#define <NAME> <value>` and `extern <rtwtype> <NAME>;` — calibrations | **Define** (macro) or **ExportToFile** (tunable) |
 | `<model>.h` | `extern void <model>_initialize(void);` and `extern void <model>_Runnable(void);` — entry points | default (ERT step/init functions) |
 
 Everything else in `_ert_rtw/` (the `.c` sources, `rtwtypes.h`, `*_data.c`, …)
@@ -52,8 +52,9 @@ parser, so a port authored that way will not be found.
 
 `parse/ert.py` raises loudly rather than silently generating a broken RTE:
 
-- a missing `<model>_Intfc.h` / `_Param.h` / `.h` → `FileNotFoundError` pointing
-  here (the usual cause is a model exported without ExportToFile/Define);
+- a missing `<model>_Intfc.h` or `<model>.h` → `FileNotFoundError` pointing here
+  (the usual cause is a model exported without ExportToFile); `_Param.h` is
+  **optional** — a model with no tunable parameters simply has no calibrations;
 - a port bound in `app.yaml` that the model does not export →
   `PORT_UNKNOWN_SIGNAL`;
 - a reused port stem across models → `PORT_STEM_COLLISION`.

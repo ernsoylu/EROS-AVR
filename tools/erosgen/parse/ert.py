@@ -112,9 +112,11 @@ def _parse_calibrations(text, guard):
 
 
 def parse_model(codegen_dir, model_name):
-    """Parse <codegen_dir>/<model>{_Intfc,_Param}.h + <model>.h into a
-    ModelInterface. Raises FileNotFoundError with a clear message if the
-    expected ExportToFile headers are absent (the contract is violated)."""
+    """Parse <codegen_dir>/<model>_Intfc.h + <model>.h into a ModelInterface,
+    with <model>_Param.h optional (calibrations). The interface (ports) and the
+    entry points are required; a model with no tunable parameters has no
+    _Param.h, so its calibrations are simply empty. Raises FileNotFoundError with
+    a clear message if a *required* ExportToFile header is absent."""
     d = Path(codegen_dir)
 
     def read(suffix):
@@ -126,12 +128,17 @@ def parse_model(codegen_dir, model_name):
                 "(see rte/README_ASW.md)")
         return p.read_text()
 
+    def read_optional(suffix):
+        p = d / f"{model_name}{suffix}"
+        return p.read_text() if p.exists() else ""
+
     intfc = read("_Intfc.h")
-    param = read("_Param.h")
+    param = read_optional("_Param.h")   # optional: no params -> no _Param.h
     main = read(".h")
 
     signals = tuple(_parse_signals(intfc))
-    calibrations = tuple(_parse_calibrations(param, f"{model_name}_Param_h_"))
+    calibrations = (tuple(_parse_calibrations(param, f"{model_name}_Param_h_"))
+                    if param else ())
 
     funcs = [m.group(1) for m in _EXTERN_FUNC.finditer(main)]
     init_fn = next((f for f in funcs if f == f"{model_name}_initialize"), "")
