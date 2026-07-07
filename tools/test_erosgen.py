@@ -1470,9 +1470,9 @@ def test_project_cmakelists_and_vscode():
     assert "add_executable(knbdemo.elf" in cm
     assert "-mmcu=${MCU}" in cm and "set(CMAKE_C_COMPILER avr-gcc)" in cm
     import json
-    tasks = json.loads(emit_vscode_tasks(s))
+    tasks = json.loads(emit_vscode_tasks())
     assert {t["label"] for t in tasks["tasks"]} >= {"build", "flash"}
-    cpp = json.loads(emit_vscode_cpp_properties(s))
+    cpp = json.loads(emit_vscode_cpp_properties())
     assert cpp["configurations"][0]["compileCommands"].endswith(
         "compile_commands.json")
 

@@ -25,67 +25,82 @@ from .makefile import (_drivers_dir_or_fail, _layer_dir, driver_sources,
 _WARN = ["-Wall", "-Wextra", "-Werror"]
 _STD = ["-std=c99", "-Os", "-flto", "-ffunction-sections", "-fdata-sections",
         "-fno-common"]
+_RTE_C = "Rte.c"          # the RTE both models and hand-ASW tasks emit into app_dir
 
 
-def build_plan(s, app_dir):
-    """Return the concrete build facts as real paths (relative to ``app_dir``
-    unless a dir was given absolute): ``{srcs, incs, defs, cflags, app_srcs,
-    ext_drv, model_dirs}``. Mirrors emit_makefile's assembly; the Makefile
-    expresses the model dirs as make variables, here they are resolved so an IDE
-    can index them."""
-    local_drv, ext_drv = driver_sources(s, app_dir)
-    asw_files = [f"asw_{t.period_ms}ms.c" for t in s.periodic
-                 if t.name not in s.rte_task_names]
-    app_srcs = list(s.sources)
-    for f in asw_files + local_drv:
-        if f not in app_srcs:
-            app_srcs.append(f)
+def _add(lst, item):
+    if item not in lst:
+        lst.append(item)
+
+
+def _asw_task_srcs(s, app_srcs, ext_drv):
+    """Hand-authored ASW tasks contribute 3 sources + Rte.c + bound drivers."""
     for t in s.asw_tasks:
         for suffix in (".c", "_Intfc.c", "_Param.c"):
-            f = f"{t['name']}{suffix}"
-            if f not in app_srcs:
-                app_srcs.append(f)
+            _add(app_srcs, f"{t['name']}{suffix}")
         for fname in model_driver_srcs(t, s.profile):
-            if fname not in ext_drv:
-                ext_drv.append(fname)
-    if s.asw_tasks and "Rte.c" not in app_srcs:
-        app_srcs.append("Rte.c")
-    if getattr(s, "modes", None) and "Rte_Modes.c" not in app_srcs:
-        app_srcs.append("Rte_Modes.c")
+            _add(ext_drv, fname)
+    if s.asw_tasks:
+        _add(app_srcs, _RTE_C)
 
-    # Model codegen dirs, resolved to real paths (Makefile uses $(MODEL_DIR)).
-    model_dirs = []
+
+def _model_dirs(s, app_srcs, ext_drv):
+    """models:/simulink: contribute Rte.c + bound drivers; return codegen dirs."""
+    dirs = []
     if s.simulink:
         mdir = s.simulink.get("dir", "../codegen")
-        model_dirs.append(f"{mdir}/{s.simulink['model']}_ert_rtw")
+        dirs.append(f"{mdir}/{s.simulink['model']}_ert_rtw")
     if s.models:
-        if "Rte.c" not in app_srcs:
-            app_srcs.append("Rte.c")
+        _add(app_srcs, _RTE_C)
         for m in s.models:
-            model_dirs.append(m["codegen_dir"])
+            dirs.append(m["codegen_dir"])
             for fname in model_driver_srcs(m, s.profile):
-                if fname not in ext_drv:
-                    ext_drv.append(fname)
+                _add(ext_drv, fname)
+    return dirs
 
-    incs = ["-I.", f"-I{s.kernel_dir}"]
-    incs += [f"-I{d}" for d in model_dirs]
-    dd = _drivers_dir_or_fail(s, ext_drv) if ext_drv else None
+
+def _include_dirs(s, ext_drv, model_dirs):
+    incs = ["-I.", f"-I{s.kernel_dir}"] + [f"-I{d}" for d in model_dirs]
     if ext_drv:
+        dd = _drivers_dir_or_fail(s, ext_drv)
         for sub in sorted({_layer_dir(f) for f in ext_drv}):
-            d = f"{dd}/{sub}" if sub else dd
-            if f"-I{d}" not in incs:
-                incs.append(f"-I{d}")
+            _add(incs, f"-I{dd}/{sub}" if sub else f"-I{dd}")
+    return incs
 
-    # Concrete source paths, relative to app_dir (absolute if a dir was given so).
+
+def _concrete_srcs(s, app_dir, app_srcs, ext_drv, model_dirs):
+    """The source files (relative to app_dir, or absolute if a dir was given so)
+    the Makefile's VPATH resolves - with the model codegen dirs globbed."""
     srcs = list(app_srcs)                                  # generated in app_dir
-    srcs += [f"{dd}/{f}" for f in ext_drv]
+    if ext_drv:
+        dd = _drivers_dir_or_fail(s, ext_drv)
+        srcs += [f"{dd}/{f}" for f in ext_drv]
     srcs += [f"{s.kernel_dir}/eros.c", "config.c"]
     for d in model_dirs:
         md = Path(d) if Path(d).is_absolute() else Path(app_dir) / d
         for c in sorted(md.glob("*.c")):
             if c.name != "ert_main.c":
                 srcs.append(str(c) if Path(d).is_absolute() else f"{d}/{c.name}")
+    return srcs
 
+
+def build_plan(s, app_dir):
+    """Return the concrete build facts as real paths: ``{srcs, incs, defs,
+    cflags, app_srcs, ext_drv, model_dirs}``. Mirrors emit_makefile's assembly;
+    the Makefile expresses the model dirs as make variables, here they are
+    resolved so an IDE can index them (a guard test keeps the two in step)."""
+    local_drv, ext_drv = driver_sources(s, app_dir)
+    app_srcs = list(s.sources)
+    for f in [f"asw_{t.period_ms}ms.c" for t in s.periodic
+              if t.name not in s.rte_task_names] + local_drv:
+        _add(app_srcs, f)
+    _asw_task_srcs(s, app_srcs, ext_drv)
+    if getattr(s, "modes", None):
+        _add(app_srcs, "Rte_Modes.c")
+    model_dirs = _model_dirs(s, app_srcs, ext_drv)
+
+    incs = _include_dirs(s, ext_drv, model_dirs)
+    srcs = _concrete_srcs(s, app_dir, app_srcs, ext_drv, model_dirs)
     defs = periph_defines(s)
     cflags = (_WARN + _STD + [f"-mmcu={s.profile.mcu_gcc}",
               f"-DF_CPU={s.profile.f_cpu}"] + defs + incs)
@@ -139,7 +154,7 @@ def emit_cmakelists(s, app_dir):
     return "\n".join(L)
 
 
-def emit_vscode_tasks(s):
+def emit_vscode_tasks():
     """VS Code build/flash/clean/size tasks that shell out to the Makefile."""
     def task(label, cmd, default=False):
         t = {"label": label, "type": "shell", "command": cmd,
@@ -159,7 +174,7 @@ def emit_vscode_tasks(s):
     return json.dumps(doc, indent=2) + "\n"
 
 
-def emit_vscode_cpp_properties(s):
+def emit_vscode_cpp_properties():
     """Point the VS Code C/C++ extension at compile_commands.json so IntelliSense
     matches the real build exactly."""
     doc = {

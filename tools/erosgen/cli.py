@@ -188,9 +188,9 @@ def main(argv):
             outputs.append((app_dir / "CMakeLists.txt",
                             emit_cmakelists(s, app_dir), True))
             outputs.append((app_dir / ".vscode" / "tasks.json",
-                            emit_vscode_tasks(s), True))
+                            emit_vscode_tasks(), True))
             outputs.append((app_dir / ".vscode" / "c_cpp_properties.json",
-                            emit_vscode_cpp_properties(s), True))
+                            emit_vscode_cpp_properties(), True))
             if rte_rms:   # ASAP2/A2L describes the SWC interface (ports + cals)
                 outputs.append((app_dir / f"{s.name}.a2l",
                                 emit_a2l(rte_rms, s.name, src.name), True))
